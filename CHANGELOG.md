@@ -31,7 +31,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `blase → neutre` morph made the eyes reverse by 15. The expression-morph test
   now starts from every face instead of the first one only, which is what let
   that through. Worst reversal over all 240 face pairs: etoile 12.9, coeur 2.5,
-  losange 1.9, under the 14 gate (goutte: 11.1).
+  losange 1.9, under the 14 gate (goutte: 11.1). Known limit, not fixed here: a
+  face change that starts mid-animation instead of at t = 0 reaches 14.8 on the
+  star (`neutre → blase` around 8 s) — and 17.3 on the existing `goutte`. It comes
+  from the eyefit correction meeting the gaze drift, not from the shapes (eight
+  star profiles all land between 14.05 and 14.8), and the suite only starts
+  morphs at t = 0.
 
 ### Fixed
 
