@@ -5,6 +5,19 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Three customiser shapes: `etoile` (five-pointed star), `coeur` (heart) and
+  `losange` (diamond).** Built analytically in `skins.ts` like the previous ones —
+  a radial profile sampled at the same 64 angles — so the eyefit table and the
+  motion tests cover them with no engine change. The heart is the first
+  re-entrant profile in the customiser: its sampling point is kept inside the
+  silhouette's kernel (one ray intersection per angle, measured), and its width
+  was tuned so the resting gaze no longer scrapes the inter-lobe wall — the deep
+  rebroussement that showed during expression morphs. Reversal amplitude,
+  measured by the suite's own metric: etoile 12.9, coeur 11.9, under the 14
+  gate (goutte: 11.1).
+
 ### Fixed
 
 - **The Settings and Animations views were unusable below 64rem.** Everything stacks

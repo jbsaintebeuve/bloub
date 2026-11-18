@@ -3,6 +3,7 @@ import {
   hullOfCircles,
   profileFromPolygon,
   regularPolygonProfile,
+  roundedPolygonProfile,
   superellipseProfile,
   unionOfCirclesProfile
 } from './shape'
@@ -33,6 +34,9 @@ export type ShapeId =
   | 'hexagone'
   | 'nuage'
   | 'goutte'
+  | 'etoile'
+  | 'coeur'
+  | 'losange'
 
 export interface BotShape {
   id: ShapeId
@@ -76,6 +80,72 @@ const droplet = normalize(
 /** Capsule couchee : enveloppe de deux disques cote a cote. */
 const capsule = profileFromPolygon(hullOfCircles(-0.42, 0, 0.62, 0.42, 0, 0.62), 0, 0)
 
+/** Nombre de branches de l'etoile, et rayons de ses aretes avant arrondi. */
+const BRANCHES = 5
+
+/**
+ * Etoile : dix sommets alternes entre pointe et creux, adoucis comme les autres
+ * formes du personnalisateur. Pointe en haut, et creux tenant les yeux vers les
+ * deux branches basses — c'est la disposition qui laisse a la table d'`eyefit` le
+ * moins de travai a faire pour recoller le visage au contour reel.
+ */
+const star = normalize(
+  roundedPolygonProfile(
+    Array.from({ length: 2 * BRANCHES }, (_, k) => {
+      // -90deg + k croissant : sens horaire a l'ecran, la premiere pointe en haut
+      const a = -Math.PI / 2 + (k / (2 * BRANCHES)) * Math.PI * 2
+      const r = k % 2 === 0 ? 1.28 : 0.74
+      return { x: Math.cos(a) * (r - 0.13), y: Math.sin(a) * (r - 0.13) }
+    }),
+    0.13
+  ),
+  1.08
+)
+
+/**
+ * Coeur : la courbe parametrique classique, echantillonnee puis recentree.
+ * Le centre de visee doit rester dans le NOYAU de la silhouette (la zone d'ou
+ * l'on voit tout le contour, verifiee par mesure : une intersection par rayon) :
+ * plus haut, le lancer de rayon traverse le creux inter-lobes et
+ * `profileFromPolygon`, qui garde l'intersection la plus lointaine, remplit la
+ * vallee. Un recentrage plus bas rapprocherait le creux de l'origine, sous le
+ * plancher de rayon minimal que le reste du moteur suppose.
+ */
+const HEART_SAMPLES = 128
+/*
+ * -0.05 : le creux inter-lobes doit rester plus haut que le plancher de rayon
+ * minimal (0,3) suppose par le reste du moteur, meme apres normalisation sur le
+ * pic lateral. Plus bas, le creux se rapproche de l'origine et la forme retombe
+ * sous la borne — c'est le seul role de cette constante.
+ */
+const HEART_CENTER = -0.05
+/*
+ * 1.2 : le coeur brut est juste assez etroit entre les deux lobes pour que le
+ * regard de repos (en haut a droite) colle son oeil contre la paroi interieure
+ * du lobe — d'ou des decalages d'expression tres disperces, et un rebroussement
+ * hors borne pendant les morphs de visage.
+ */
+const HEART_WIDTH = 1.2
+
+const heart = normalize(
+  profileFromPolygon(
+    Array.from({ length: HEART_SAMPLES }, (_, i) => {
+      const t = (i / HEART_SAMPLES) * Math.PI * 2
+      // 16 et 13 : les coefficients habituels de la courbe ; y ecran vers le bas,
+      // donc le signe inverse pour garder la pointe en bas et les lobes en haut
+      const x = ((16 * Math.sin(t) ** 3) / 16) * HEART_WIDTH
+      const y = (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 16
+      return { x, y: -y + HEART_CENTER }
+    }),
+    0,
+    0
+  ),
+  1.06
+)
+
+/** Losange : carre tourne d'un quart de tour, sommets en haut et a droite. */
+const losange = regularPolygonProfile(4, 1.14, 0.3, -90)
+
 export const SHAPES: BotShape[] = [
   { id: 'cercle', radii: new Array(PROFILE_SAMPLES).fill(1) },
   { id: 'galet', radii: pebble },
@@ -88,7 +158,10 @@ export const SHAPES: BotShape[] = [
   // 0deg : sommets a gauche et a droite, donc aretes du haut et du bas plates
   { id: 'hexagone', radii: regularPolygonProfile(6, 1.04, 0.26, 0) },
   { id: 'nuage', radii: cloud },
-  { id: 'goutte', radii: droplet }
+  { id: 'goutte', radii: droplet },
+  { id: 'etoile', radii: star },
+  { id: 'coeur', radii: heart },
+  { id: 'losange', radii: losange }
 ]
 
 // Map indexee par `string` et non par `ShapeId` : les appelants interrogent avec
@@ -109,6 +182,7 @@ export type ColorId =
   | 'violet'
   | 'rose'
   | 'gris'
+  | 'perso'
 
 export interface BotColor {
   id: ColorId
@@ -128,11 +202,27 @@ export const COLORS: BotColor[] = [
   { id: 'violet', hex: '#8b5cf6' },
   { id: 'rose', hex: '#e152b0' },
   { id: 'gris', hex: '#a3a3a3' },
-  { id: 'creme', hex: '#f1efe9' }
+  { id: 'creme', hex: '#f1efe9' },
+  /*
+   * Teinte libre : son `hex` n'est qu'un repli. La vraie valeur vit chez
+   * l'appelant (localStorage puis prop `colorHex`), jamais ici — `src/bot/` ne
+   * touche pas au stockage. Sans teinte passee, le rendu retombe sur le repli.
+   */
+  { id: 'perso', hex: '#6366f1' }
 ]
 
 export const COLOR_BY_ID = new Map<string, BotColor>(COLORS.map((c) => [c.id, c]))
 export const DEFAULT_COLOR = 'encre'
+
+/**
+ * Un `#RRGGBB` valable, et rien d'autre. Les navigateurs admettent des formes
+ * plus larges dans un `<input type="color">`, mais le SVG exporte doit rester
+ * portable : on borne ce qui franchit la frontiere stockage -> moteur, et toute
+ * valeur relicotee invalide retombe sur l'encre.
+ */
+export function estHexValide(v: string | null | undefined): v is string {
+  return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
+}
 
 /** Melange deux couleurs hex. Sert a la brume de profondeur des particules. */
 export function mixHex(from: string, to: string, t: number): string {
