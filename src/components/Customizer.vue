@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useTemplateRef } from 'vue'
 import BotTile from '@/components/BotTile.vue'
 import { EXPRESSIONS } from '@/bot/expressions'
-import { COLORS, SHAPES } from '@/bot/skins'
+import { COLORS, SHAPES, teinteLisible } from '@/bot/skins'
 import { t } from '@/i18n'
 
 const shape = defineModel<string>('shape', { required: true })
@@ -22,6 +22,29 @@ const couleurVignettes = computed(() => (color.value === 'perso' ? couleurPerso.
 
 /** Les presets seuls : la teinte libre a sa propre pastille, avec son selecteur. */
 const PRESETS = COLORS.filter((c) => c.id !== 'perso')
+
+/** Ce que la pastille montre : la teinte telle que le bot la rendra. */
+const teinteRendue = computed(() => teinteLisible(couleurPerso.value))
+
+const selecteur = useTemplateRef<HTMLInputElement>('selecteur')
+
+/**
+ * Le clic sur la pastille SELECTIONNE la teinte libre, puis ouvre le selecteur.
+ * Selectionner sur `input` seulement laissait impossible de revenir a la teinte
+ * enregistree sans la modifier : refermer le selecteur sans changement n'emet rien.
+ * `showPicker` peut lever (iframe tierce, navigateur ancien) : le `click` prend
+ * alors le relais.
+ */
+function choisitPerso() {
+  color.value = 'perso'
+  const champ = selecteur.value
+  if (!champ) return
+  try {
+    champ.showPicker()
+  } catch {
+    champ.click()
+  }
+}
 </script>
 
 <template>
@@ -79,26 +102,35 @@ const PRESETS = COLORS.filter((c) => c.id !== 'perso')
         />
       </button>
       <!--
-        Teinte libre : la pastille montre la couleur courante, et l'input natif
-        `type="color"` la couvre entierement en transparent — c'est lui qui prend
-        le clic ET le clavier. Choisir une teinte selectionne `perso` en meme
-        temps qu'il ecrit la valeur, les deux modeles partent ensemble.
+        Teinte libre : un vrai bouton, comme les presets — meme focus, meme
+        `aria-pressed` — qui selectionne `perso` et ouvre le selecteur natif. Le
+        champ `type="color"` reste hors de l'arbre d'accessibilite et du Tab :
+        le bouton est la seule porte, le champ n'est que la popup. Il est pose
+        sous la pastille pour que la popup s'ouvre a cote d'elle.
       -->
-      <div
-        class="relative flex aspect-square items-center justify-center rounded-full border-2 transition"
-        :class="
-          color === 'perso' ? 'border-[var(--ink)]' : 'border-transparent hover:border-[var(--line)]'
-        "
-      >
-        <span
-          class="block h-[78%] w-[78%] rounded-full ring-1 ring-black/10 ring-inset"
-          :style="{ background: couleurPerso }"
-        />
-        <input
-          type="color"
-          class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-          :value="couleurPerso"
+      <div class="relative">
+        <button
+          type="button"
+          class="flex aspect-square w-full cursor-pointer items-center justify-center rounded-full border-2 transition"
+          :class="
+            color === 'perso' ? 'border-[var(--ink)]' : 'border-transparent hover:border-[var(--line)]'
+          "
           :aria-label="t('colors.perso')"
+          :aria-pressed="color === 'perso'"
+          @click="choisitPerso"
+        >
+          <span
+            class="block h-[78%] w-[78%] rounded-full ring-1 ring-black/10 ring-inset"
+            :style="{ background: teinteRendue }"
+          />
+        </button>
+        <input
+          ref="selecteur"
+          type="color"
+          class="pointer-events-none absolute bottom-0 left-1/2 h-px w-px opacity-0"
+          tabindex="-1"
+          aria-hidden="true"
+          :value="couleurPerso"
           @input="couleurPerso = ($event.target as HTMLInputElement).value; color = 'perso'"
         />
       </div>

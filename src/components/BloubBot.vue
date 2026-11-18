@@ -15,7 +15,8 @@ import {
   DEFAULT_SHAPE,
   SHAPE_BY_ID,
   estHexValide,
-  mixHex
+  mixHex,
+  teinteLisible
 } from '@/bot/skins'
 import { blockAt, defaultCycle, offsetOf, type Block } from '@/bot/cycles'
 import { DEMI_VIEWBOX, RAYON } from '@/bot/repere'
@@ -34,7 +35,8 @@ const props = withDefaults(
      * dans `src/bot/`. Un preset garde toujours son hex : deux modeles qui
      * divergent ne peuvent pas resigner une couleur fixe. Invalide ou absente
      * sur `perso`, on retombe sur son repli ; c'est aussi ce qui garde le
-     * composant utilisable seul, sans teinte a fournir.
+     * composant utilisable seul, sans teinte a fournir. Trop claire, elle est
+     * assombrie au rendu (`teinteLisible`).
      */
     colorHex?: string
     /** identifiant d'expression de repos du personnalisateur */
@@ -98,9 +100,12 @@ const R = RAYON
 const VB = DEMI_VIEWBOX
 
 const shapeRadii = computed(() => SHAPE_BY_ID.get(props.shape)?.radii ?? null)
+// La teinte libre passe par `teinteLisible` ICI, au seul point de rendu : la
+// scene, les vignettes et tous les exports dessinent ce composant, donc aucun
+// chemin ne peut produire un bot de la couleur du fond.
 const ink = computed(() =>
   props.color === 'perso' && estHexValide(props.colorHex)
-    ? props.colorHex
+    ? teinteLisible(props.colorHex)
     : (COLOR_BY_ID.get(props.color)?.hex ?? '#0a0a0c')
 )
 const expression = computed(() => EXPRESSION_BY_ID.get(props.expression) ?? null)

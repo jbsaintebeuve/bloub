@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { BotEngine } from '@/bot/engine'
 import { blockAt, defaultCycle, offsetOf, type Block } from '@/bot/cycles'
 import { RAYON } from '@/bot/repere'
-import { SHAPE_BY_ID } from '@/bot/skins'
+import { CONTRASTE_MIN_PERSO, SHAPE_BY_ID, contraste, teinteLisible } from '@/bot/skins'
 import { EXPRESSION_BY_ID } from '@/bot/expressions'
 import { ouvreCycle } from './capture'
 import { DEMI_ECRAN, viewBoxExport } from './export'
@@ -95,6 +95,14 @@ describe('teinte libre', () => {
     expect(await fondDuCorps({ ...REGLAGES, color: 'perso', colorHex: '12b8a5' })).toBe('#6366f1')
     expect(await fondDuCorps({ ...REGLAGES, color: 'perso' })).toBe('#6366f1')
     expect(await fondDuCorps({ ...REGLAGES, colorHex: '#12b8a5' })).toBe('#0a0a0c')
+  })
+
+  // Le blanc pur passe la validation : c'est au rendu qu'il doit cesser d'etre blanc,
+  // sinon l'export sur fond blanc ne contient plus rien.
+  it('ne rend jamais une teinte libre de la couleur du fond', async () => {
+    const fill = await fondDuCorps({ ...REGLAGES, color: 'perso', colorHex: '#ffffff' })
+    expect(fill).toBe(teinteLisible('#ffffff'))
+    expect(contraste(fill!, '#ffffff')).toBeGreaterThanOrEqual(CONTRASTE_MIN_PERSO)
   })
 })
 

@@ -80,14 +80,22 @@ const droplet = normalize(
 /** Capsule couchee : enveloppe de deux disques cote a cote. */
 const capsule = profileFromPolygon(hullOfCircles(-0.42, 0, 0.62, 0.42, 0, 0.62), 0, 0)
 
-/** Nombre de branches de l'etoile, et rayons de ses aretes avant arrondi. */
+/** Nombre de branches de l'etoile. */
 const BRANCHES = 5
+
+/*
+ * 0.16 : arrondi des pointes et des creux. A 0.13, le retour `blase -> neutre`
+ * faisait rebrousser les yeux de 15 unites, au-dela de la borne de 14 que pose
+ * `skins.test.ts` ; a 0.16 le pire couple retombe a 12,9 sans toucher a la
+ * profondeur des creux.
+ */
+const ETOILE_ARRONDI = 0.16
 
 /**
  * Etoile : dix sommets alternes entre pointe et creux, adoucis comme les autres
  * formes du personnalisateur. Pointe en haut, et creux tenant les yeux vers les
  * deux branches basses — c'est la disposition qui laisse a la table d'`eyefit` le
- * moins de travai a faire pour recoller le visage au contour reel.
+ * moins de travail a faire pour recoller le visage au contour reel.
  */
 const star = normalize(
   roundedPolygonProfile(
@@ -95,9 +103,12 @@ const star = normalize(
       // -90deg + k croissant : sens horaire a l'ecran, la premiere pointe en haut
       const a = -Math.PI / 2 + (k / (2 * BRANCHES)) * Math.PI * 2
       const r = k % 2 === 0 ? 1.28 : 0.74
-      return { x: Math.cos(a) * (r - 0.13), y: Math.sin(a) * (r - 0.13) }
+      return {
+        x: Math.cos(a) * (r - ETOILE_ARRONDI),
+        y: Math.sin(a) * (r - ETOILE_ARRONDI)
+      }
     }),
-    0.13
+    ETOILE_ARRONDI
   ),
   1.08
 )
@@ -215,7 +226,7 @@ export const DEFAULT_COLOR = 'encre'
  * Un `#RRGGBB` valable, et rien d'autre. Les navigateurs admettent des formes
  * plus larges dans un `<input type="color">`, mais le SVG exporte doit rester
  * portable : on borne ce qui franchit la frontiere stockage -> moteur, et toute
- * valeur relicotee invalide retombe sur l'encre.
+ * valeur invalide retombe sur le repli de `perso`.
  */
 export function estHexValide(v: string | null | undefined): v is string {
   return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
@@ -231,4 +242,62 @@ export function mixHex(from: string, to: string, t: number): string {
   const b = parse(to)
   const c = a.map((x, i) => Math.round(x + (b[i]! - x) * t))
   return `#${c.map((x) => x.toString(16).padStart(2, '0')).join('')}`
+}
+
+/**
+ * Fond le plus sombre sur lequel le bot est pose : la vignette inactive de la
+ * piste. Le papier du site (#f9f9f9) et le blanc des exports sont plus clairs,
+ * donc une teinte qui tient contre celui-ci tient contre tous.
+ */
+const FOND_LE_PLUS_SOMBRE = '#f2f2f2'
+
+/**
+ * Contraste minimal corps / fond pour la teinte libre. Les yeux sont des TROUS
+ * dans le corps : sous ce seuil, ce n'est pas seulement la silhouette qui
+ * s'efface, c'est tout le visage. 1,4 laisse les pastels lisibles sans les
+ * transformer en gris.
+ */
+export const CONTRASTE_MIN_PERSO = 1.4
+
+/** Luminance relative WCAG d'un `#RRGGBB`. */
+function luminance(hex: string): number {
+  const v = parseInt(hex.slice(1), 16)
+  const lin = (c: number) => {
+    const s = c / 255
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * lin((v >> 16) & 255) + 0.7152 * lin((v >> 8) & 255) + 0.0722 * lin(v & 255)
+}
+
+/** Contraste WCAG entre deux `#RRGGBB`, toujours >= 1. */
+export function contraste(a: string, b: string): number {
+  const la = luminance(a)
+  const lb = luminance(b)
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)
+}
+
+/**
+ * La teinte libre telle qu'elle sera RENDUE : assez sombre pour ne jamais se
+ * confondre avec le fond, sinon un `#ffffff` choisi au selecteur donnait un
+ * export entierement blanc. On assombrit en multipliant les trois canaux par le
+ * meme facteur, ce qui garde la teinte ; une couleur deja lisible ressort telle
+ * quelle. Les presets ne passent pas par ici : ils sont fixes.
+ */
+export function teinteLisible(hex: string): string {
+  const fond = luminance(FOND_LE_PLUS_SOMBRE)
+  const tient = (h: string) => luminance(h) < fond && contraste(h, FOND_LE_PLUS_SOMBRE) >= CONTRASTE_MIN_PERSO
+  if (tient(hex)) return hex
+  const v = parseInt(hex.slice(1), 16)
+  const canaux = [(v >> 16) & 255, (v >> 8) & 255, v & 255]
+  const fois = (k: number) =>
+    `#${canaux.map((c) => Math.floor(c * k).toString(16).padStart(2, '0')).join('')}`
+  // dichotomie sur le facteur : le plus clair qui tient encore
+  let bas = 0
+  let haut = 1
+  for (let i = 0; i < 24; i++) {
+    const milieu = (bas + haut) / 2
+    if (tient(fois(milieu))) bas = milieu
+    else haut = milieu
+  }
+  return fois(bas)
 }
