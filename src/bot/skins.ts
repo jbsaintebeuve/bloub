@@ -103,43 +103,37 @@ const star = normalize(
 )
 
 /**
- * Coeur : la courbe parametrique classique, echantillonnee puis recentree.
- * Le centre de visee doit rester dans le NOYAU de la silhouette (la zone d'ou
- * l'on voit tout le contour, verifiee par mesure : une intersection par rayon) :
- * plus haut, le lancer de rayon traverse le creux inter-lobes et
- * `profileFromPolygon`, qui garde l'intersection la plus lointaine, remplit la
- * vallee. Un recentrage plus bas rapprocherait le creux de l'origine, sous le
- * plancher de rayon minimal que le reste du moteur suppose.
+ * Coeur dodu : deux lobes ronds, chacun relie a une pointe emoussee par
+ * l'enveloppe convexe des deux disques, puis l'ensemble incline. Chaque
+ * enveloppe est convexe et contient l'origine, donc leur union est etoilee
+ * depuis le centre : un rayon ne croise le contour qu'une fois, et garder la
+ * plus lointaine des deux intersections donne le contour exact, creux compris.
+ * Le creux reste peu profond : c'est ce qui garde les yeux loin de la paroi
+ * pendant les morphs d'expression.
  */
-const HEART_SAMPLES = 128
-/*
- * -0.05 : le creux inter-lobes doit rester plus haut que le plancher de rayon
- * minimal (0,3) suppose par le reste du moteur, meme apres normalisation sur le
- * pic lateral. Plus bas, le creux se rapproche de l'origine et la forme retombe
- * sous la borne — c'est le seul role de cette constante.
- */
-const HEART_CENTER = -0.05
-/*
- * 1.2 : le coeur brut est juste assez etroit entre les deux lobes pour que le
- * regard de repos (en haut a droite) colle son oeil contre la paroi interieure
- * du lobe — d'ou des decalages d'expression tres disperces, et un rebroussement
- * hors borne pendant les morphs de visage.
- */
-const HEART_WIDTH = 1.2
+const LOBE_X = 0.36
+const LOBE_Y = -0.16
+const LOBE_R = 0.5
+const POINTE_Y = 0.42
+const POINTE_R = 0.34
+/** Inclinaison, en degres : la pointe part vers la droite, comme le regard de repos. */
+const COEUR_INCLINE = -22
 
+function demiCoeur(cote: 1 | -1): number[] {
+  const a = (COEUR_INCLINE * Math.PI) / 180
+  const c = Math.cos(a)
+  const s = Math.sin(a)
+  const pts = hullOfCircles(cote * LOBE_X, LOBE_Y, LOBE_R, 0, POINTE_Y, POINTE_R).map((p) => ({
+    x: p.x * c - p.y * s,
+    y: p.x * s + p.y * c
+  }))
+  return profileFromPolygon(pts, 0, 0)
+}
+
+const lobeGauche = demiCoeur(-1)
+const lobeDroit = demiCoeur(1)
 const heart = normalize(
-  profileFromPolygon(
-    Array.from({ length: HEART_SAMPLES }, (_, i) => {
-      const t = (i / HEART_SAMPLES) * Math.PI * 2
-      // 16 et 13 : les coefficients habituels de la courbe ; y ecran vers le bas,
-      // donc le signe inverse pour garder la pointe en bas et les lobes en haut
-      const x = ((16 * Math.sin(t) ** 3) / 16) * HEART_WIDTH
-      const y = (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 16
-      return { x, y: -y + HEART_CENTER }
-    }),
-    0,
-    0
-  ),
+  lobeGauche.map((r, i) => Math.max(r, lobeDroit[i] ?? 0)),
   1.06
 )
 
