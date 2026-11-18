@@ -2,7 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { BotEngine, type RenderedEye } from './engine'
 import { decalageDesYeux, POUR_TESTS } from './eyefit'
 import { EXPRESSIONS } from './expressions'
-import { DEFAULT_SHAPE, SHAPES, SHAPE_BY_ID } from './skins'
+import {
+  COLOR_BY_ID,
+  CONTRASTE_MIN_PERSO,
+  DEFAULT_SHAPE,
+  SHAPES,
+  SHAPE_BY_ID,
+  contraste,
+  estHexValide,
+  teinteLisible
+} from './skins'
 import { STATES, type StateId } from './states'
 
 /**
@@ -280,6 +289,28 @@ describe('formes du personnalisateur', () => {
         n: 0,
         amplitude: 0
       })
+    /*
+     * Meme mesure, mais depuis CHAQUE expression et pas seulement la premiere : un
+     * changement de visage part de celui qu'on quitte. Partir toujours de `neutre`
+     * laissait passer le retour `blase -> neutre` de l'etoile, a 15 unites.
+     */
+    const pireMorphDExpression = (radii: number[]) => {
+      let pire = 0
+      for (const depart of EXPRESSIONS) {
+        for (const expr of EXPRESSIONS) {
+          if (expr === depart) continue
+          const { amplitude } = allersRetours(
+            trajectoire(() => {
+              const e = new BotEngine(R, 'idle', radii, depart)
+              e.setExpression(expr, 0)
+              return e
+            })
+          )
+          pire = Math.max(pire, amplitude)
+        }
+      }
+      return pire
+    }
 
     /*
      * Sur le CERCLE, rien du tout : la correction y est nulle, donc elle ne peut ajouter
@@ -301,16 +332,17 @@ describe('formes du personnalisateur', () => {
       )
       /*
        * Un changement d'expression fait passer le decalage d'une entree de table a l'autre.
-       * Sept formes sur huit n'y gagnent aucun aller-retour ; la `goutte` passe de un
-       * rebroussement de 6,3 unites — deja present sans correction — a deux de 11,1. La
-       * borne laisse passer ca et rien de plus : les versions fautives etaient a 26.
+       * Sur les huit formes d'origine, sept n'y gagnaient aucun aller-retour ; la `goutte`
+       * passe de un rebroussement de 6,3 unites — deja present sans correction — a deux de
+       * 11,1, et l'etoile culmine a 12,9. La borne laisse passer ca et rien de plus : les
+       * versions fautives etaient a 26.
        */
-      expect(
-        morphsDExpression(forme.radii).amplitude,
-        `${forme.id} : morphs d expression`
-      ).toBeLessThan(14)
+      expect(pireMorphDExpression(forme.radii), `${forme.id} : morphs d expression`).toBeLessThan(
+        14
+      )
     }
-  })
+    // 240 couples d'expressions par forme : le deuxieme test le plus lourd du depot
+  }, 30_000)
 
   /**
    * La table est une constante de module. Elle doit rester assez rapide a batir pour ne pas
@@ -321,5 +353,59 @@ describe('formes du personnalisateur', () => {
     const t = performance.now()
     POUR_TESTS.batir()
     expect(performance.now() - t).toBeLessThan(200)
+  })
+})
+
+describe('couleur libre', () => {
+  /*
+   * La seule frontiere entre le stockage (ecrit par un navigateur, dont on ne
+   * controle pas la sortie) et le moteur : un #RRGGBB strict, refuse plutot
+   * qu'epure — le rendu tombera sur l'identifiant ou l'encre, jamais sur une
+   * chaine injectee telle quelle dans le SVG exporte.
+   */
+  it("estHexValide accepte un #RRGGBB et rien d'autre", () => {
+    expect(estHexValide('#0a0a0c')).toBe(true)
+    expect(estHexValide('#6366F1')).toBe(true)
+    expect(estHexValide('#63 6f')).toBe(false)
+    expect(estHexValide('#36f')).toBe(false)
+    expect(estHexValide('0a0a0c')).toBe(false)
+    expect(estHexValide('#0a0a0c0a')).toBe(false)
+    expect(estHexValide('rgb(10, 10, 12)')).toBe(false)
+    expect(estHexValide('')).toBe(false)
+    expect(estHexValide(null)).toBe(false)
+    expect(estHexValide(undefined)).toBe(false)
+  })
+
+  it('la teinte libre a son id au catalogue et un repli hex valide', () => {
+    const perso = COLOR_BY_ID.get('perso')
+    expect(perso).toBeDefined()
+    expect(estHexValide(perso!.hex)).toBe(true)
+  })
+
+  /*
+   * Les yeux sont des trous : une teinte de la couleur du fond efface le bot ENTIER.
+   * Un `#ffffff` donnait un GIF et un MP4 sur fond blanc sans rien dedans. On verifie
+   * contre les trois fonds ou il est pose (vignette inactive, papier, blanc d'export).
+   */
+  it('assombrit une teinte trop claire, laisse passer une teinte lisible', () => {
+    for (const clair of ['#ffffff', '#f9f9f9', '#f2f2f2', '#fffde0', '#e0f7ff']) {
+      const rendu = teinteLisible(clair)
+      expect(estHexValide(rendu), clair).toBe(true)
+      for (const fond of ['#f2f2f2', '#f9f9f9', '#ffffff']) {
+        expect(contraste(rendu, fond), `${clair} sur ${fond}`).toBeGreaterThanOrEqual(
+          CONTRASTE_MIN_PERSO
+        )
+      }
+    }
+    for (const lisible of ['#0a0a0c', '#12b8a5', '#6366f1', '#e8483f']) {
+      expect(teinteLisible(lisible)).toBe(lisible)
+    }
+  })
+
+  it('garde la teinte en assombrissant', () => {
+    // un jaune pale reste un jaune : rouge et vert devant, bleu derriere
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(teinteLisible('#fff3a0').slice(i, i + 2), 16))
+    expect(r).toBeGreaterThanOrEqual(g!)
+    expect(g).toBeGreaterThan(b!)
   })
 })

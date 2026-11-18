@@ -54,7 +54,14 @@ import {
   type Cycle
 } from '@/bot/cycles'
 import { DEFAULT_EXPRESSION, EXPRESSION_BY_ID } from '@/bot/expressions'
-import { COLOR_BY_ID, DEFAULT_COLOR, DEFAULT_SHAPE, SHAPE_BY_ID } from '@/bot/skins'
+import {
+  COLOR_BY_ID,
+  COULEUR_PERSO_DEFAUT,
+  DEFAULT_COLOR,
+  DEFAULT_SHAPE,
+  SHAPE_BY_ID,
+  estHexValide
+} from '@/bot/skins'
 import { POSES, SEQUENCE, STATES, type StateId } from '@/bot/states'
 
 /**
@@ -440,13 +447,26 @@ const droite = computed(() => !nue.value && view.value !== 'reglages')
 
 const shape = ref(stored('forme', DEFAULT_SHAPE, (v) => SHAPE_BY_ID.has(v)))
 const color = ref(stored('couleur', DEFAULT_COLOR, (v) => COLOR_BY_ID.has(v)))
+const couleurPerso = ref(stored('couleurperso', COULEUR_PERSO_DEFAUT, estHexValide))
 const expression = ref(
   stored('expression', DEFAULT_EXPRESSION, (v) => EXPRESSION_BY_ID.has(v))
 )
 
 watch(shape, (v) => ecris('forme', v))
 watch(color, (v) => ecris('couleur', v))
+watch(couleurPerso, (v) => ecris('couleurperso', v))
 watch(expression, (v) => ecris('expression', v))
+
+/**
+ * Couleur portee par le bot : la teinte libre si `perso` est choisi, sinon
+ * l'hex de l'identifiant. Toujours valide au sens de `estHexValide` — c'est la
+ * seule garantie que le SVG exporte reste portable. Les ids de preset etant
+ * fixes, cette valeur ne sert qu'a passer `colorHex` aux composants : eux
+ * retombent sur l'identifiant si on ne leur en donne pas.
+ */
+const couleurEffective = computed(() =>
+  color.value === 'perso' ? couleurPerso.value : (COLOR_BY_ID.get(color.value)?.hex ?? '#0a0a0c')
+)
 
 /**
  * Nom du produit, en capitales pour le grand mot du pied de page. PAS traduit —
@@ -595,7 +615,12 @@ async function exporteCycle() {
   const images = cycleImages(totalDuration(blocs), format)
   const pas = cyclePas(format)
   const taille = CYCLE_TAILLE[format]
-  const reglages = { shape: shape.value, color: color.value, expression: expression.value }
+  const reglages = {
+    shape: shape.value,
+    color: color.value,
+    colorHex: couleurEffective.value,
+    expression: expression.value
+  }
   const suit = (fait: number, total: number) => (avancementCycle.value = fait / total)
 
   avancementCycle.value = 0
@@ -684,11 +709,21 @@ async function exporte(id: ActionId, confirme = false) {
     if (action.mode === 'anime') {
       // L'animation ne part PAS du SVG affiche : elle est rejouee depuis le debut
       // sur une instance hors ecran. Cf. `sequenceDuBot`.
-      const reglages = { shape: shape.value, color: color.value, expression: expression.value }
+      const reglages = {
+        shape: shape.value,
+        color: color.value,
+        colorHex: couleurEffective.value,
+        expression: expression.value
+      }
       telecharge(await versSvgAnime(reglages, action.taille, ANIM_IMAGES, ANIM_PAS), nom())
       etatExport.value = 'exporte'
     } else if (action.mode === 'gif') {
-      const reglages = { shape: shape.value, color: color.value, expression: expression.value }
+      const reglages = {
+        shape: shape.value,
+        color: color.value,
+        colorHex: couleurEffective.value,
+        expression: expression.value
+      }
       const fond = couleurDeFond(fondGif.value)
       telecharge(await versGifAnime(reglages, action.taille, GIF_IMAGES, GIF_PAS, fond), nom())
       etatExport.value = 'exporte'
@@ -753,6 +788,7 @@ watch(
           :size="210"
           :shape="shape"
           :color="color"
+          :color-hex="couleurEffective"
           :expression="expression"
           :frozen-at="POSES[s.id]"
         />
@@ -871,6 +907,7 @@ watch(
             :size="preview ? 560 : 440"
             :shape="forme"
             :color="color"
+            :color-hex="couleurEffective"
             :expression="humeur ?? expression"
             :follow="view === 'reglages'"
             :gaze="intro ? INTRO_GAZE : null"
@@ -959,6 +996,7 @@ watch(
               :state="s.id"
               :shape="shape"
               :color="color"
+              :color-hex="couleurEffective"
               :expression="expression"
               :frozen-at="POSES[s.id]"
               @click="addBlock(s.id)"
@@ -971,6 +1009,7 @@ watch(
           <Customizer
             v-model:shape="shape"
             v-model:color="color"
+            v-model:couleur-perso="couleurPerso"
             v-model:expression="expression"
           />
         </template>
@@ -997,6 +1036,7 @@ watch(
       :elapsed="elapsed"
       :shape="shape"
       :color="color"
+      :color-hex="couleurEffective"
       :expression="expression"
       @seek="onSeek"
       @preview="preview = true"

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { BotEngine } from '@/bot/engine'
 import { blockAt, defaultCycle, offsetOf, type Block } from '@/bot/cycles'
 import { RAYON } from '@/bot/repere'
-import { SHAPE_BY_ID } from '@/bot/skins'
+import { CONTRASTE_MIN_PERSO, SHAPE_BY_ID, contraste, teinteLisible } from '@/bot/skins'
 import { EXPRESSION_BY_ID } from '@/bot/expressions'
 import { ouvreCycle } from './capture'
 import { DEMI_ECRAN, viewBoxExport } from './export'
@@ -68,6 +68,41 @@ describe('cadre de l export', () => {
     } finally {
       lecteur.ferme()
     }
+  })
+})
+
+describe('teinte libre', () => {
+  /** Le rendu du `rect` qui porte `ink` : le seul qui existe dans le groupe masque. */
+  async function fondDuCorps(reglages: typeof REGLAGES & { colorHex?: string }) {
+    const lecteur = await ouvreCycle(reglages, defaultCycle().blocks, TAILLE)
+    try {
+      const svg = await lecteur.rendre(0)
+      return svg.querySelector('rect')!.getAttribute('fill')
+    } finally {
+      lecteur.ferme()
+    }
+  }
+
+  /**
+   * La teinte libre ne se resout qu'au rendu et ne franchit la frontiere
+   * stockage -> composant que validee. Ce test verifie les deux bouts REELS :
+   * un `colorHex` valide remplace l'hex de l'identifiant, une valeur invalide
+   * (ou absente) retombe dessus — le SVG exporte ne doit jamais dependre de
+   * la seule foi accordee au navigateur.
+   */
+  it('rend la teinte libre quand elle est valide, l identifiant sinon', async () => {
+    expect(await fondDuCorps({ ...REGLAGES, color: 'perso', colorHex: '#12b8a5' })).toBe('#12b8a5')
+    expect(await fondDuCorps({ ...REGLAGES, color: 'perso', colorHex: '12b8a5' })).toBe('#6366f1')
+    expect(await fondDuCorps({ ...REGLAGES, color: 'perso' })).toBe('#6366f1')
+    expect(await fondDuCorps({ ...REGLAGES, colorHex: '#12b8a5' })).toBe('#0a0a0c')
+  })
+
+  // Le blanc pur passe la validation : c'est au rendu qu'il doit cesser d'etre blanc,
+  // sinon l'export sur fond blanc ne contient plus rien.
+  it('ne rend jamais une teinte libre de la couleur du fond', async () => {
+    const fill = await fondDuCorps({ ...REGLAGES, color: 'perso', colorHex: '#ffffff' })
+    expect(fill).toBe(teinteLisible('#ffffff'))
+    expect(contraste(fill!, '#ffffff')).toBeGreaterThanOrEqual(CONTRASTE_MIN_PERSO)
   })
 })
 

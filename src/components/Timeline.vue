@@ -29,6 +29,8 @@ const props = defineProps<{
   elapsed: number
   shape: string
   color: string
+  /** Couleur effective quand l'identifiant est `perso` : voir `BloubBot`. */
+  colorHex?: string
   expression: string
 }>()
 
@@ -254,6 +256,7 @@ function onRemove() {
         :elapsed="elapsed"
         :shape="shape"
         :color="color"
+        :color-hex="colorHex"
         :expression="expression"
         @update:blocks="(b: Block[]) => edit({ blocks: b })"
         @add="(s: StateId) => edit({ blocks: blocksWith(blocks, s) })"

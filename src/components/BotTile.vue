@@ -21,6 +21,8 @@ withDefaults(
     state?: StateId
     shape?: string
     color?: string
+    /** Couleur effective quand l'identifiant est `perso` : voir `BloubBot`. */
+    colorHex?: string
     expression?: string
     size?: number
   }>(),
@@ -47,6 +49,7 @@ withDefaults(
       :size="size"
       :shape="shape"
       :color="color"
+      :color-hex="colorHex"
       :expression="expression"
       :frozen-at="frozenAt"
     />

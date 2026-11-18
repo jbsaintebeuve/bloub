@@ -143,7 +143,10 @@ const zh: typeof fr = {
     triangle: '三角形',
     hexagone: '六边形',
     nuage: '云朵',
-    goutte: '水滴'
+    goutte: '水滴',
+    etoile: '星星',
+    coeur: '爱心',
+    losange: '菱形'
   },
 
   colors: {
@@ -158,7 +161,8 @@ const zh: typeof fr = {
     bleu: '蓝色',
     violet: '紫色',
     rose: '粉色',
-    gris: '灰色'
+    gris: '灰色',
+    perso: '自定义'
   },
 
   expressions: {

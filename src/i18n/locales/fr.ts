@@ -165,7 +165,10 @@ export default {
     triangle: 'Triangle',
     hexagone: 'Hexagone',
     nuage: 'Nuage',
-    goutte: 'Goutte'
+    goutte: 'Goutte',
+    etoile: 'Étoile',
+    coeur: 'Cœur',
+    losange: 'Losange'
   },
 
   colors: {
@@ -180,7 +183,8 @@ export default {
     bleu: 'Bleu',
     violet: 'Violet',
     rose: 'Rose',
-    gris: 'Gris'
+    gris: 'Gris',
+    perso: 'Personnalisée'
   },
 
   expressions: {

@@ -140,7 +140,10 @@ const en: typeof fr = {
     triangle: 'Triangle',
     hexagone: 'Hexagon',
     nuage: 'Cloud',
-    goutte: 'Droplet'
+    goutte: 'Droplet',
+    etoile: 'Star',
+    coeur: 'Heart',
+    losange: 'Diamond'
   },
 
   colors: {
@@ -155,7 +158,8 @@ const en: typeof fr = {
     bleu: 'Blue',
     violet: 'Purple',
     rose: 'Pink',
-    gris: 'Grey'
+    gris: 'Grey',
+    perso: 'Custom'
   },
 
   expressions: {

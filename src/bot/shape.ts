@@ -265,6 +265,22 @@ function roundedPolygon(verts: Point[], rc: number, arcSteps = 10): Point[] {
   return out
 }
 
+/**
+ * Polygone quelconque a coins arrondis -> profil radial. Attend les sommets
+ * poses au rayon voulu MOINS `rc`, en sens horaire (repere ecran, y vers le bas).
+ * C'est la porte d'entree generalisee de `regularPolygonProfile` : un polygone
+ * regulier n'a pas le monopole des silhouettes a aretes droites.
+ *
+ * Le contour doit etre ETOILE depuis l'origine (chaque rayon issu de (0, 0) le
+ * coupe une seule fois) : un profil radial ne decrit rien d'autre. Un polygone
+ * qui ne contient pas l'origine donne des rayons nuls, un polygone dont le creux
+ * cache une partie du bord voit ce creux comble par l'intersection la plus
+ * lointaine.
+ */
+export function roundedPolygonProfile(verts: Point[], rc: number): number[] {
+  return profileFromPolygon(roundedPolygon(verts, rc), 0, 0)
+}
+
 /** Polygone regulier a coins arrondis, inscrit dans `radius`. */
 export function regularPolygonProfile(
   sides: number,
@@ -278,7 +294,7 @@ export function regularPolygonProfile(
     const a = rot + (i / sides) * TAU
     return { x: Math.cos(a) * (radius - rc), y: Math.sin(a) * (radius - rc) }
   })
-  return profileFromPolygon(roundedPolygon(verts, rc), 0, 0)
+  return roundedPolygonProfile(verts, rc)
 }
 
 /** Polyligne fermee exacte : garde les segments droits (contrairement a closedPath). */
