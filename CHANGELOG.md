@@ -14,7 +14,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   keep their ids, and the ids remain what travels through `color`; the resolved
   hex only rides alongside as the optional `colorHex` prop, which the exports
   (`sequenceDuBot` spreads it) and every preview already consume. Used alone the
-  component still resolves by id.
+  component still resolves by id. A tint too close to the background is darkened
+  at render (`teinteLisible`, hue kept, contrast ≥ 1.4 against the lightest
+  backgrounds): the eyes are holes in the body, so a white tint used to export an
+  entirely blank GIF or MP4. The slot is a real `aria-pressed` button like the
+  presets — visible focus, and clicking it re-selects the saved tint without
+  having to change it.
 - **Three customiser shapes: `etoile` (five-pointed star), `coeur` (heart) and
   `losange` (diamond).** Built analytically in `skins.ts` like the previous ones —
   a radial profile sampled at the same 64 angles — so the eyefit table and the
@@ -22,9 +27,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   one: two round lobes, each joined to a blunt tip by the convex hull of the two
   discs, the whole turned by −22°. Each hull is convex and contains the centre,
   so their union stays star-shaped and its notch stays shallow — the eyes never
-  reach the inter-lobe wall. Reversal amplitude, measured by the suite's own
-  metric from the neutral face: etoile 12.9, coeur 0.1, under the 14 gate
-  (goutte: 11.1).
+  reach the inter-lobe wall. The star's corners are rounded at 0.16: at 0.13 the
+  `blase → neutre` morph made the eyes reverse by 15. The expression-morph test
+  now starts from every face instead of the first one only, which is what let
+  that through. Worst reversal over all 240 face pairs: etoile 12.9, coeur 2.5,
+  losange 1.9, under the 14 gate (goutte: 11.1).
 
 ### Fixed
 
