@@ -14,6 +14,7 @@ import {
   DEFAULT_COLOR,
   DEFAULT_SHAPE,
   SHAPE_BY_ID,
+  estHexValide,
   mixHex
 } from '@/bot/skins'
 import { blockAt, defaultCycle, offsetOf, type Block } from '@/bot/cycles'
@@ -27,6 +28,15 @@ const props = withDefaults(
     shape?: string
     /** identifiant de couleur du personnalisateur */
     color?: string
+    /**
+     * Couleur EFFECTIVE du corps, en #RRGGBB — ne surcharge QUE l'identifiant
+     * `perso`, dont la teinte vit chez l'appelant (stockage puis prop), jamais
+     * dans `src/bot/`. Un preset garde toujours son hex : deux modeles qui
+     * divergent ne peuvent pas resigner une couleur fixe. Invalide ou absente
+     * sur `perso`, on retombe sur son repli ; c'est aussi ce qui garde le
+     * composant utilisable seul, sans teinte a fournir.
+     */
+    colorHex?: string
     /** identifiant d'expression de repos du personnalisateur */
     expression?: string
     /** couleur du fond, utilisee pour la brume de profondeur des particules */
@@ -88,7 +98,11 @@ const R = RAYON
 const VB = DEMI_VIEWBOX
 
 const shapeRadii = computed(() => SHAPE_BY_ID.get(props.shape)?.radii ?? null)
-const ink = computed(() => COLOR_BY_ID.get(props.color)?.hex ?? '#0a0a0c')
+const ink = computed(() =>
+  props.color === 'perso' && estHexValide(props.colorHex)
+    ? props.colorHex
+    : (COLOR_BY_ID.get(props.color)?.hex ?? '#0a0a0c')
+)
 const expression = computed(() => EXPRESSION_BY_ID.get(props.expression) ?? null)
 
 const engine = new BotEngine(R, state.value, shapeRadii.value, expression.value)

@@ -189,6 +189,9 @@ export interface BotColor {
   hex: string
 }
 
+/** Repli de la teinte libre : montre une couleur tant que rien n'est stocke. */
+export const COULEUR_PERSO_DEFAUT = '#6366f1'
+
 /** Palette du personnalisateur d'origine. */
 export const COLORS: BotColor[] = [
   { id: 'encre', hex: '#0a0a0c' },
@@ -208,7 +211,7 @@ export const COLORS: BotColor[] = [
    * l'appelant (localStorage puis prop `colorHex`), jamais ici — `src/bot/` ne
    * touche pas au stockage. Sans teinte passee, le rendu retombe sur le repli.
    */
-  { id: 'perso', hex: '#6366f1' }
+  { id: 'perso', hex: COULEUR_PERSO_DEFAUT }
 ]
 
 export const COLOR_BY_ID = new Map<string, BotColor>(COLORS.map((c) => [c.id, c]))

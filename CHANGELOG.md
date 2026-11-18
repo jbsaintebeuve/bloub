@@ -7,6 +7,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A free-colour slot next to the twelve presets.** Selecting it opens the
+  native colour picker; the tint survives reloads under `bloub:couleurperso` and
+  is revalidated as a strict `#RRGGBB` on read — anything else falls back, so no
+  arbitrary string ever reaches the exported SVG. The presets are untouched and
+  keep their ids, and the ids remain what travels through `color`; the resolved
+  hex only rides alongside as the optional `colorHex` prop, which the exports
+  (`sequenceDuBot` spreads it) and every preview already consume. Used alone the
+  component still resolves by id.
 - **Three customiser shapes: `etoile` (five-pointed star), `coeur` (heart) and
   `losange` (diamond).** Built analytically in `skins.ts` like the previous ones —
   a radial profile sampled at the same 64 angles — so the eyefit table and the

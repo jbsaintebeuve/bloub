@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { BotEngine, type RenderedEye } from './engine'
 import { decalageDesYeux, POUR_TESTS } from './eyefit'
 import { EXPRESSIONS } from './expressions'
-import { DEFAULT_SHAPE, SHAPES, SHAPE_BY_ID } from './skins'
+import { COLOR_BY_ID, DEFAULT_SHAPE, SHAPES, SHAPE_BY_ID, estHexValide } from './skins'
 import { STATES, type StateId } from './states'
 
 /**
@@ -321,5 +321,32 @@ describe('formes du personnalisateur', () => {
     const t = performance.now()
     POUR_TESTS.batir()
     expect(performance.now() - t).toBeLessThan(200)
+  })
+})
+
+describe('couleur libre', () => {
+  /*
+   * La seule frontiere entre le stockage (ecrit par un navigateur, dont on ne
+   * controle pas la sortie) et le moteur : un #RRGGBB strict, refuse plutot
+   * qu'epure — le rendu tombera sur l'identifiant ou l'encre, jamais sur une
+   * chaine injectee telle quelle dans le SVG exporte.
+   */
+  it("estHexValide accepte un #RRGGBB et rien d'autre", () => {
+    expect(estHexValide('#0a0a0c')).toBe(true)
+    expect(estHexValide('#6366F1')).toBe(true)
+    expect(estHexValide('#63 6f')).toBe(false)
+    expect(estHexValide('#36f')).toBe(false)
+    expect(estHexValide('0a0a0c')).toBe(false)
+    expect(estHexValide('#0a0a0c0a')).toBe(false)
+    expect(estHexValide('rgb(10, 10, 12)')).toBe(false)
+    expect(estHexValide('')).toBe(false)
+    expect(estHexValide(null)).toBe(false)
+    expect(estHexValide(undefined)).toBe(false)
+  })
+
+  it('la teinte libre a son id au catalogue et un repli hex valide', () => {
+    const perso = COLOR_BY_ID.get('perso')
+    expect(perso).toBeDefined()
+    expect(estHexValide(perso!.hex)).toBe(true)
   })
 })

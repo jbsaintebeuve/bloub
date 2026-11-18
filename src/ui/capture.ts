@@ -245,6 +245,8 @@ export async function cycleVersGif(
 export interface ReglagesBot {
   shape: string
   color: string
+  /** Couleur effective (teinte libre) ; absente, `BloubBot` resoud l'identifiant. */
+  colorHex?: string
   expression: string
 }
 

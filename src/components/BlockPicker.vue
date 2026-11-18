@@ -8,7 +8,7 @@ import { t } from '@/i18n'
  * Carte « + » de la piste et sa palette. Ajouter depuis la piste evite d'aller
  * jusqu'au panneau de droite quand on monte.
  */
-defineProps<{ shape: string; color: string; expression: string }>()
+defineProps<{ shape: string; color: string; colorHex?: string; expression: string }>()
 const emit = defineEmits<{ pick: [state: StateId] }>()
 
 /** Les animations dans l'ordre de la video. */
@@ -103,6 +103,7 @@ function pick(state: StateId) {
         :state="s.id"
         :shape="shape"
         :color="color"
+        :color-hex="colorHex"
         :expression="expression"
         :frozen-at="POSES[s.id]"
         @click="pick(s.id)"
