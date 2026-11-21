@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import BotTile from '@/components/BotTile.vue'
+import { parseStoredAvatars } from '@/bot/avatar-import'
+import { FORMES_IMPORTEES } from '@/ui/formes-importees'
 import Customizer from '@/components/Customizer.vue'
 import BloubBot from '@/components/BloubBot.vue'
 import ExportBar from '@/components/ExportBar.vue'
@@ -445,8 +447,13 @@ const droite = computed(() => !nue.value && view.value !== 'reglages')
 
 /* ------------------------------------------------------------------- skins */
 
-const shape = ref(stored('forme', DEFAULT_SHAPE, (v) => SHAPE_BY_ID.has(v)))
+FORMES_IMPORTEES.clear()
+for (const avatar of parseStoredAvatars(lis('formes'))) FORMES_IMPORTEES.set(avatar.id, avatar)
+const shape = ref(
+  stored('forme', DEFAULT_SHAPE, (id) => SHAPE_BY_ID.has(id) || FORMES_IMPORTEES.has(id))
+)
 const color = ref(stored('couleur', DEFAULT_COLOR, (v) => COLOR_BY_ID.has(v)))
+const couleurYeux = ref(stored('couleuryeux', '', estHexValide))
 const couleurPerso = ref(stored('couleurperso', COULEUR_PERSO_DEFAUT, estHexValide))
 const expression = ref(
   stored('expression', DEFAULT_EXPRESSION, (v) => EXPRESSION_BY_ID.has(v))
@@ -454,6 +461,7 @@ const expression = ref(
 
 watch(shape, (v) => ecris('forme', v))
 watch(color, (v) => ecris('couleur', v))
+watch(couleurYeux, (v) => ecris('couleuryeux', v))
 watch(couleurPerso, (v) => ecris('couleurperso', v))
 watch(expression, (v) => ecris('expression', v))
 
@@ -619,6 +627,7 @@ async function exporteCycle() {
     shape: shape.value,
     color: color.value,
     colorHex: couleurEffective.value,
+    eyeColor: couleurYeux.value,
     expression: expression.value
   }
   const suit = (fait: number, total: number) => (avancementCycle.value = fait / total)
@@ -713,6 +722,7 @@ async function exporte(id: ActionId, confirme = false) {
         shape: shape.value,
         color: color.value,
         colorHex: couleurEffective.value,
+        eyeColor: couleurYeux.value,
         expression: expression.value
       }
       telecharge(await versSvgAnime(reglages, action.taille, ANIM_IMAGES, ANIM_PAS), nom())
@@ -722,6 +732,7 @@ async function exporte(id: ActionId, confirme = false) {
         shape: shape.value,
         color: color.value,
         colorHex: couleurEffective.value,
+        eyeColor: couleurYeux.value,
         expression: expression.value
       }
       const fond = couleurDeFond(fondGif.value)
@@ -789,6 +800,7 @@ watch(
           :shape="shape"
           :color="color"
           :color-hex="couleurEffective"
+          :eye-color="couleurYeux"
           :expression="expression"
           :frozen-at="POSES[s.id]"
         />
@@ -908,6 +920,7 @@ watch(
             :shape="forme"
             :color="color"
             :color-hex="couleurEffective"
+            :eye-color="couleurYeux"
             :expression="humeur ?? expression"
             :follow="view === 'reglages'"
             :gaze="intro ? INTRO_GAZE : null"
@@ -997,6 +1010,7 @@ watch(
               :shape="shape"
               :color="color"
               :color-hex="couleurEffective"
+              :eye-color="couleurYeux"
               :expression="expression"
               :frozen-at="POSES[s.id]"
               @click="addBlock(s.id)"
@@ -1010,6 +1024,7 @@ watch(
             v-model:shape="shape"
             v-model:color="color"
             v-model:couleur-perso="couleurPerso"
+            v-model:couleur-yeux="couleurYeux"
             v-model:expression="expression"
           />
         </template>
@@ -1037,6 +1052,7 @@ watch(
       :shape="shape"
       :color="color"
       :color-hex="couleurEffective"
+      :eye-color="couleurYeux"
       :expression="expression"
       @seek="onSeek"
       @preview="preview = true"

@@ -247,6 +247,7 @@ export interface ReglagesBot {
   color: string
   /** Couleur effective (teinte libre) ; absente, `BloubBot` resoud l'identifiant. */
   colorHex?: string
+  eyeColor?: string
   expression: string
 }
 
@@ -378,14 +379,11 @@ export async function ouvreCycle(
   }
 }
 
-/**
- * Les matrices des yeux d'une image, lues sur le masque.
- *
- * Les yeux sont les seules formes du masque a porter un `transform` — le corps
- * n'en a pas — donc l'ordre du document suffit a les identifier.
- */
+/** Lit les deux yeux dans leur ordre de rendu, dans le masque ou peints sur le corps. */
 function matricesDesYeux(svg: SVGSVGElement) {
-  return [...svg.querySelectorAll('mask [transform]')].map((e) => e.getAttribute('transform')!)
+  return [...svg.querySelectorAll('mask [transform], [data-oeil-colore][transform]')].map(
+    (oeil) => oeil.getAttribute('transform')!
+  )
 }
 
 /**

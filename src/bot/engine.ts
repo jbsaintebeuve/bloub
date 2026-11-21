@@ -5,7 +5,6 @@ import { blinkScale, eyePoses, liveliness } from './face'
 import { clamp, easings, lerp, r2 } from './math'
 import {
   blend,
-  capsulePath,
   closedPath,
   radiusAtAngle,
   toPoints,
@@ -13,6 +12,7 @@ import {
   type Silhouette
 } from './shape'
 import { STATE_BY_ID, type Pose, type StateDef, type StateId } from './states'
+import { cheminOeil } from './yeux'
 
 export interface RenderedEye {
   d: string
@@ -136,6 +136,7 @@ export class BotEngine {
    * fondu est deja en cours. Cf. `setState`.
    */
   private departFige: Pose | null = null
+  private arcFige: number | null = null
   private tCur = 0
   private tPrev = 0
   private blinkAt = -10
@@ -353,6 +354,7 @@ export class BotEngine {
     this.cur = id
     this.prev = null
     this.departFige = null
+    this.arcFige = null
     this.tCur = now
     this.tPrev = now
     this.blinkAt = -10
@@ -412,6 +414,7 @@ export class BotEngine {
     if (id === this.cur) return
     const morph = STATE_BY_ID.get(this.cur)!.morph
     const enPleinFondu = this.prev !== null && now - this.tCur < morph
+    this.arcFige = enPleinFondu ? this.arcAtTime(now, this.exprAtTime(now)) : null
     this.departFige = enPleinFondu ? this.poseComposee(now) : null
     this.prev = this.cur
     this.tPrev = this.tCur
@@ -421,6 +424,19 @@ export class BotEngine {
     if (STATE_BY_ID.get(id)?.blinkIn) this.blinkAt = now
   }
 
+  private arcAtTime(now: number, expr: BotExpression | null): number {
+    const arc = expr?.arc ?? 0
+    if (!arc && this.arcFige === null) return 0
+
+    const def = STATE_BY_ID.get(this.cur)!
+    const arrivee = def.baseFace ? arc : 0
+    const since = now - this.tCur
+    if (!this.prev || since >= def.morph) return arrivee
+
+    const depart = this.arcFige ?? (STATE_BY_ID.get(this.prev)!.baseFace ? arc : 0)
+    return lerp(depart, arrivee, easings.easeOutQuint(clamp(since / def.morph)))
+  }
+
   sample(now: number): BotFrame {
     const R = this.scale
     const def = STATE_BY_ID.get(this.cur)!
@@ -428,6 +444,7 @@ export class BotEngine {
     const expr = this.exprAtTime(now)
     let pose = this.posed(def, Math.max(0, now - this.tCur), shape, expr)
     let decalage = this.decalageAtTime(now, this.cur)
+    const arc = this.arcAtTime(now, expr)
 
     // --- transition -------------------------------------------------------
     const since = now - this.tCur
@@ -517,10 +534,12 @@ export class BotEngine {
         const cx2 = -e.a * sp + e.c * cp
         const cy2 = -e.b * sp + e.d * cp
         // Le clignement s'applique APRES tout ca : c'est un ecrasement vertical
-        // a l'ecran, pas le long de l'axe de la gelule.
+        // a l'ecran, pas le long de l'axe de la gelule. Il porte donc l'arc
+        // comme la gélule — et comme l'export SVG animé ne transporte que les
+        // matrices, le clignement de l'arc y est animé lui aussi.
         const k = blinkScale(Math.min(lid, cfg.open))
         eyes.push({
-          d: capsulePath(cfg.w * R, cfg.h * R),
+          d: cheminOeil(cfg.w * R, cfg.h * R, arc),
           matrix: `matrix(${r2(ax)},${r2(ay * k)},${r2(cx2)},${r2(cy2 * k)},${r2(e.x * fit + (offX + decalage.x) * R)},${r2(e.y * fit + (offY + decalage.y) * R)})`,
           alpha: pose.eyeAlpha * clamp(e.depth / 0.12)
         })

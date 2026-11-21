@@ -31,6 +31,7 @@ const props = defineProps<{
   color: string
   /** Couleur effective quand l'identifiant est `perso` : voir `BloubBot`. */
   colorHex?: string
+  eyeColor?: string
   expression: string
 }>()
 
@@ -257,6 +258,7 @@ function onRemove() {
         :shape="shape"
         :color="color"
         :color-hex="colorHex"
+        :eye-color="eyeColor"
         :expression="expression"
         @update:blocks="(b: Block[]) => edit({ blocks: b })"
         @add="(s: StateId) => edit({ blocks: blocksWith(blocks, s) })"

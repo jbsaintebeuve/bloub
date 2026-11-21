@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { aplatir, parseChemin, type Point } from './avatar-import-chemin'
 import { BotEngine, type RenderedEye } from './engine'
-import { decalageDesYeux, POUR_TESTS } from './eyefit'
+import { decalageDesYeux } from './eyefit'
 import { EXPRESSIONS } from './expressions'
 import {
   COLOR_BY_ID,
@@ -68,13 +69,25 @@ function dedans(poly: Array<{ x: number; y: number }>, x: number, y: number) {
  * Trente-deux points suffisent : sur une gelule de 40 unites de long ils sont espaces de
  * moins de trois unites, la ou le plus petit debordement qu'on ait mesure en vaut trois.
  */
+const contoursArcs = new Map<string, Point[]>()
+
 function contourDeLOeil(eye: RenderedEye, N = 32) {
+  const m = eye.matrix.match(/-?\d+\.?\d*/g)!.map(Number)
+  const [a, b, c, d, e, f] = m as [number, number, number, number, number, number]
+  if (eye.d.includes('Q')) {
+    let contour = contoursArcs.get(eye.d)
+    if (!contour) {
+      // Le parseur d’import attend un repère positif de 100 unités.
+      const positif = eye.d.replace(/-?\d+\.?\d*/g, (n) => String(Number(n) + 50))
+      contour = aplatir(parseChemin(positif))[0]!.map(([x, y]) => [x - 50, y - 50])
+      contoursArcs.set(eye.d, contour)
+    }
+    return contour.map(([x, y]) => ({ x: a * x + c * y + e, y: b * x + d * y + f }))
+  }
   const g = eye.d.match(/-?\d+\.?\d*/g)!.map(Number)
   const hw = Math.abs(g[0]!)
   const r = Math.abs(g[2]!)
   const droit = Math.abs(g[1]!)
-  const m = eye.matrix.match(/-?\d+\.?\d*/g)!.map(Number)
-  const [a, b, c, d, e, f] = m as [number, number, number, number, number, number]
   const out: Array<{ x: number; y: number }> = []
   for (let i = 0; i < N; i++) {
     const u = (i / N) * 4
@@ -344,14 +357,10 @@ describe('formes du personnalisateur', () => {
     // 240 couples d'expressions par forme : le deuxieme test le plus lourd du depot
   }, 30_000)
 
-  /**
-   * La table est une constante de module. Elle doit rester assez rapide a batir pour ne pas
-   * peser sur le premier affichage : c'est le seul cout que ce correctif ajoute au moteur,
-   * qui ne fait plus ensuite qu'y lire deux entrees et les interpoler.
-   */
-  it('la table se batit en quelques millisecondes', () => {
+  it('calcule les corrections visibles au premier affichage du personnalisateur', () => {
+    const profils = SHAPES.map(({ radii }) => radii.slice())
     const t = performance.now()
-    POUR_TESTS.batir()
+    for (const profil of profils) decalageDesYeux(profil, 'idle', 'neutre')
     expect(performance.now() - t).toBeLessThan(200)
   })
 })

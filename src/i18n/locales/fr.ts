@@ -39,12 +39,25 @@ export default {
     /**
      * Au SINGULIER, comme les trois autres : un titre de grille nomme ce qu'un
      * clic pose, pas le nombre de vignettes proposees. Le pluriel reste au rail,
-     * qui nomme la vue et non le choix (`rail.animations`).
+     * qui nomme la vue et non le choix (`rail.animations`). Les onglets de la
+     * navigation du panneau, eux, nomment la SECTION ouverte et prennent le
+     * pluriel (`tabFormes` et consorts).
      */
     animations: 'Animation',
     shape: 'Forme',
     expression: 'Expression',
-    color: 'Couleur'
+    color: 'Couleur',
+    eyeColor: 'Couleur des yeux',
+    resetEyeColor: 'Rétablir la couleur par défaut des yeux',
+    addShape: 'Ajouter une forme',
+    removeImportedShape: 'Supprimer la forme importée',
+    /** `aria-label` du groupe de navigation Formes / Expressions / Couleurs. */
+    navSections: 'Sections du personnalisateur',
+    tabFormes: 'Formes',
+    tabExpressions: 'Expressions',
+    tabCouleurs: 'Couleurs',
+    /** La palette du CORPS, dans l'onglet Couleurs : la nommer « du corps » la distingue des yeux. */
+    bodyColor: 'Couleur du corps'
   },
 
   /**
@@ -168,7 +181,17 @@ export default {
     goutte: 'Goutte',
     etoile: 'Étoile',
     coeur: 'Cœur',
-    losange: 'Losange'
+    losange: 'Losange',
+    oeuf: 'Œuf',
+    bouclier: 'Bouclier',
+    fantome: 'Fantôme',
+    manette: 'Manette',
+    bulle: 'Bulle',
+    livre: 'Livre',
+    cerveau: 'Cerveau',
+    'appareil-photo': 'Appareil photo',
+    ampoule: 'Ampoule',
+    fusee: 'Fusée'
   },
 
   colors: {
@@ -193,6 +216,7 @@ export default {
     surpris: 'Surpris',
     excite: 'Excité',
     heureux: 'Heureux',
+    ravi: 'Ravi',
     hilare: 'Hilare',
     colere: 'En colère',
     triste: 'Triste',

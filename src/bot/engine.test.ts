@@ -541,3 +541,55 @@ describe('changement d etat pendant un fondu', () => {
     expect(new Set(images.slice(-12)).size).toBeGreaterThan(1)
   })
 })
+
+/**
+ * L'arc de l'expression de repos entre les états : un état qui a son propre
+ * visage (wink) le perd pendant le fondu, comme le décalage des yeux — et le
+ * clignement d'entrée masque ce fondu, comme dans la video.
+ */
+describe('arc des yeux entre etats', () => {
+  const cercle = SHAPE_BY_ID.get('cercle')!.radii
+
+  it("fond l'arc vers la gélule pendant le morph vers un état à visage propre", () => {
+    const ravi = EXPRESSION_BY_ID.get('ravi')!
+    const e = new BotEngine(100, 'idle', cercle, ravi)
+    const arcPur = e.sample(1).eyes[0]!.d
+    e.setState('wink', 1)
+    const milieu = e.sample(1.15).eyes[0]!.d
+    const winkNu = new BotEngine(100, 'wink').sample(1.15).eyes[0]!.d
+    expect(milieu).not.toBe(arcPur)
+    expect(milieu).not.toBe(winkNu)
+    // une fois le fondu passé (wink morphe en 0.3 s), c'est la gélule de wink
+    expect(e.sample(1 + 0.3 + 0.05).eyes[0]!.d).toBe(winkNu)
+  })
+
+  it("garde l'arc sur un morph entre deux états à visage de repos", () => {
+    const ravi = EXPRESSION_BY_ID.get('ravi')!
+    const e = new BotEngine(100, 'idle', cercle, ravi)
+    const arcPur = e.sample(1).eyes[0]!.d
+    e.setState('swirl', 1)
+    // swirl porte aussi le visage de repos : l'arc ne fond pas
+    expect(e.sample(1.15).eyes[0]!.d).toBe(arcPur)
+    expect(e.sample(1 + 0.3 + 0.05).eyes[0]!.d).toBe(arcPur)
+  })
+
+  it("conserve l'arc affiché quand un deuxième changement coupe le fondu", () => {
+    const ravi = EXPRESSION_BY_ID.get('ravi')!
+    const e = new BotEngine(100, 'idle', cercle, ravi)
+    e.setState('wink', 1)
+    const date = 1.1
+    const contours = e.sample(date).eyes.map((eye) => eye.d)
+    expect(contours[0]).toContain('Q')
+    e.setState('idle', date)
+    expect(e.sample(date).eyes.map((eye) => eye.d)).toEqual(contours)
+  })
+
+  it('reste une fonction pure du temps avec un arc en cours de fondu', () => {
+    const ravi = EXPRESSION_BY_ID.get('ravi')!
+    const e = new BotEngine(100, 'idle', cercle, ravi)
+    e.setState('wink', 1)
+    const milieu = e.sample(1.1).eyes[0]!.d
+    e.sample(4)
+    expect(e.sample(1.1).eyes[0]!.d).toBe(milieu)
+  })
+})

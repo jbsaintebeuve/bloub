@@ -8,8 +8,9 @@
  * masque l'ouvre vers l'exterieur. La gelule apparaissait comme une encoche dans le
  * corps sur `capsule`, `triangle`, `nuage` et `goutte`.
  *
- * Ce module resout le probleme UNE FOIS, au chargement, et rend une table de decalages.
- * Ce choix est l'essentiel du correctif, bien plus que la geometrie qui suit :
+ * Ce module resout le probleme UNE FOIS PAR FORME, a sa premiere lecture, et rend une
+ * table de decalages. Ce choix est l'essentiel du correctif, bien plus que la geometrie
+ * qui suit :
  *
  * Resolue dans la boucle de rendu, la correction reagit a tout ce qui bouge a soixante
  * images par seconde — la derive du regard, le pointeur, l'expression en cours de
@@ -33,16 +34,16 @@
  * couvrir le pire cas de la derive du regard, ce qu'une version par image ne pouvait pas
  * se permettre.
  *
- * La table est une constante de module, batie a l'import a partir de donnees pures :
- * meme nature que le calendrier de clignements de `face.ts`, deterministe et sans etat,
- * donc sans effet sur la purete de `engine.sample(t)`.
+ * La table est un cache de module, bati a la premiere lecture de chaque forme a partir
+ * de donnees pures : meme nature que le calendrier de clignements de `face.ts`,
+ * deterministe et sans etat, donc sans effet sur la purete de `engine.sample(t)`.
  */
 
-import { EXPRESSIONS, type BotExpression } from './expressions'
+import { EXPRESSION_BY_ID, type BotExpression } from './expressions'
 import { eyePoses } from './face'
 import { radiusAtAngle, toPoints, type Point } from './shape'
-import { SHAPES } from './skins'
-import { STATES, type Pose, type StateDef, type StateId } from './states'
+import { STATE_BY_ID, type Pose, type StateDef, type StateId } from './states'
+import { ARC_HEUREUX, centreArc } from './yeux'
 
 /** Rayon de reference du solveur. Le decalage rendu est en unites de ce rayon. */
 const R = 100
@@ -68,15 +69,20 @@ interface Visage {
   gaze: Pose['gaze']
   split: number
   eyes: Pose['eyes']
+  /** 0 = gélules, 1 = yeux en arc (`yeux.ts`) : l'empreinte en dépend. */
+  arc: number
 }
 
 /**
- * Une gelule prete a etre mesuree : le segment de son axe, et de quoi calculer le rayon
- * a degager DANS UNE DIRECTION donnee.
+ * Une forme prete a etre mesuree : les segments de son axe, et de quoi calculer le
+ * rayon a degager DANS UNE DIRECTION donnee.
  *
  * Une gelule est exactement un segment epaissi d'un disque de rayon `r`. Son image par la
  * matrice tangente est donc un segment epaissi d'une ELLIPSE, et le rayon a degager
  * depend de la direction : c'est la fonction d'appui de cette ellipse, `r * |A^T u|`.
+ * Un œil en arc est un trait le long d'une courbe (la quadratique de `centreArc`),
+ * bordé du même disque : son empreinte est la polyligne de cette courbe, un segment
+ * par morceau.
  *
  * Prendre a la place sa plus grande valeur singuliere serait conservateur mais faux dans
  * la seule direction qui compte, et ca se paie cher : la marge de reference sur le cercle
@@ -87,9 +93,8 @@ interface Empreinte {
   /** centre, en unites de viewBox */
   x: number
   y: number
-  /** demi-vecteur de l'axe */
-  ax: number
-  ay: number
+  /** segments de l'axe, en deports absolus depuis le centre */
+  segs: Array<[Point, Point]>
   /** rayon du disque local, avant transformation */
   r: number
   /** colonnes de la matrice tangente, pour la fonction d'appui */
@@ -99,11 +104,9 @@ interface Empreinte {
 /**
  * Empreintes des deux yeux d'un visage, posees sur un profil.
  *
- * Une gelule est exactement un segment epaissi d'un disque de rayon `r`. Son image par
- * la matrice tangente est donc un segment epaissi d'une ELLIPSE, et un disque du rayon
- * de son grand axe la couvre : d'ou la plus grande valeur singuliere. La mesure reste
- * ainsi conservatrice au sens strict, une marge positive garantissant que la gelule est
- * dedans.
+ * Le contour d'un œil en arc est le trait de sa ligne médiane, bordé d'un disque de
+ * rayon `stroke`·w / 2 : l'empreinte en est la polyligne. Celle de la gélule reste le
+ * segment de son grand axe, bordé du disque de rayon `min(hw, hh)`.
  *
  * Le clignement n'y est pas : un oeil ferme n'a pas besoin qu'on lui fasse de la place.
  */
@@ -117,26 +120,40 @@ function empreintes(visage: Visage, sil: Pose['sil'], radii: number[]): Empreint
     const phi = ((cfg.tilt ?? 0) * Math.PI) / 180
     const cp = Math.cos(phi)
     const sp = Math.sin(phi)
+    // colonnes de la matrice tangente, composee du tilt
     const ax = e.a * cp + e.c * sp
     const ay = e.b * cp + e.d * sp
-    const cx = -e.a * sp + e.c * cp
-    const cy = -e.b * sp + e.d * cp
+    const bx = -e.a * sp + e.c * cp
+    const by = -e.b * sp + e.d * cp
 
     const hw = Math.max(cfg.w * R, 0.01) / 2
     const hh = Math.max(cfg.h * R, 0.01) / 2
+    // le prorata du rayon local, exactement comme le fait le moteur
+    const fit = radiusAtAngle(radii, Math.atan2(e.y, e.x) - sil.rot)
+    if (visage.arc > 0) {
+      // œil en arc : la polyligne de la ligne médiane, bordée du disque du trait
+      const r = (cfg.w * R * ARC_HEUREUX.stroke) / 2
+      const courbe = centreArc(cfg.w * R, cfg.h * R).map((p) => ({
+        x: ax * p.x + bx * p.y,
+        y: ay * p.x + by * p.y
+      }))
+      const segs: Array<[Point, Point]> = []
+      for (let k = 0; k + 1 < courbe.length; k++) segs.push([courbe[k]!, courbe[k + 1]!])
+      out.push({ x: e.x * fit, y: e.y * fit, segs, r, m: [ax, ay, bx, by] })
+      continue
+    }
     const r = Math.min(hw, hh)
     // l'axe est celui de la plus grande dimension
     const long = hh > hw
     const demi = long ? hh - r : hw - r
-    // le prorata du rayon local, exactement comme le fait le moteur
-    const fit = radiusAtAngle(radii, Math.atan2(e.y, e.x) - sil.rot)
+    const vx = (long ? bx : ax) * demi
+    const vy = (long ? by : ay) * demi
     out.push({
       x: e.x * fit,
       y: e.y * fit,
-      ax: (long ? cx : ax) * demi,
-      ay: (long ? cy : ay) * demi,
+      segs: [[{ x: -vx, y: -vy }, { x: vx, y: vy }]],
       r,
-      m: [ax, ay, cx, cy]
+      m: [ax, ay, bx, by]
     })
   }
   return out
@@ -188,7 +205,7 @@ interface Epreuve {
  */
 const FLOTTEMENT = Math.hypot(DERIVE_X, DERIVE_Y) * R
 
-/** Marge de la gelule la plus serree, et le sens qui la degage. */
+/** Marge de la forme la plus serree, et le sens qui la degage. */
 function pire(pts: Point[], emps: Empreinte[], tx: number, ty: number) {
   let marge = Infinity
   let ux = 0
@@ -196,15 +213,19 @@ function pire(pts: Point[], emps: Empreinte[], tx: number, ty: number) {
   for (const e of emps) {
     const x = e.x + tx
     const y = e.y + ty
-    const a = approche(pts, x - e.ax, y - e.ay, x + e.ax, y + e.ay)
-    // fonction d'appui de l'ellipse dans la direction de l'approche
-    const [m0, m1, m2, m3] = e.m
-    const rayon =
-      e.r * Math.hypot(m0 * a.ux + m1 * a.uy, m2 * a.ux + m3 * a.uy) + FLOTTEMENT
-    if (a.d - rayon < marge) {
-      marge = a.d - rayon
-      ux = a.ux
-      uy = a.uy
+    // chaque segment de l'axe est une empreinte a lui seul (gélule : un seul,
+    // arc : la polyligne de la courbe médiane)
+    for (const [p, q] of e.segs) {
+      const a = approche(pts, x + p.x, y + p.y, x + q.x, y + q.y)
+      // fonction d'appui de l'ellipse dans la direction de l'approche
+      const [m0, m1, m2, m3] = e.m
+      const rayon =
+        e.r * Math.hypot(m0 * a.ux + m1 * a.uy, m2 * a.ux + m3 * a.uy) + FLOTTEMENT
+      if (a.d - rayon < marge) {
+        marge = a.d - rayon
+        ux = a.ux
+        uy = a.uy
+      }
     }
   }
   return { marge, ux, uy }
@@ -345,8 +366,10 @@ function resous(epreuves: Epreuve[]): { x: number; y: number } {
  * de re-resoudre le probleme sur un regard en cours d'interpolation.
  */
 function visageDe(def: StateDef, pose: Pose, expr: BotExpression | null): Visage {
-  if (def.baseFace && expr) return { gaze: expr.gaze, split: expr.split, eyes: expr.eyes }
-  return { gaze: pose.gaze, split: pose.split, eyes: pose.eyes }
+  if (def.baseFace && expr) {
+    return { gaze: expr.gaze, split: expr.split, eyes: expr.eyes, arc: expr.arc ?? 0 }
+  }
+  return { gaze: pose.gaze, split: pose.split, eyes: pose.eyes, arc: 0 }
 }
 
 /** Les dates a echantillonner dans un etat : une seule si sa pose ne bouge pas. */
@@ -401,55 +424,34 @@ const NUL = { x: 0, y: 0 } as const
 const clef = (state: StateId, expr: string | null) => `${state}|${expr ?? ''}`
 
 /**
- * Table des decalages, batie a l'import : une entree par (forme, etat a corps de base,
- * expression). Seuls `idle` et `swirl` portent le visage de repos, donc seuls eux se
- * declinent par expression — les trois autres etats a corps de base ont un visage releve
- * sur la video et une seule entree.
- *
- * Clef par REFERENCE du tableau de rayons, ce qui est deja la convention du moteur : ses
- * gardes `radii === this.shape` et `expression === this.expr` reposent sur la meme
- * stabilite. Un profil inconnu, ou `null`, ne corrige rien — l'API accepte n'importe quel
- * tableau et le moteur n'a pas a dependre de la prudence de ses appelants.
+ * Les entrees d'une SEULE forme : une par (etat a corps de base, expression). Seuls
+ * `idle` et `swirl` portent le visage de repos, donc seuls eux se declinent par
+ * expression — les trois autres etats a corps de base ont un visage releve sur la
+ * video et une seule entree.
  */
-function batir(): Map<number[], Map<string, { x: number; y: number }>> {
-  return new Map(
-  SHAPES.map((forme) => {
-    const par = new Map<string, { x: number; y: number }>()
-    for (const def of STATES) {
-      if (!def.baseBody) continue
-      const expressions = def.baseFace ? [null, ...EXPRESSIONS] : [null]
-      for (const expr of expressions) {
-        par.set(clef(def.id, expr?.id ?? null), decalagePour(def, forme.radii, expr))
-      }
-    }
-    return [forme.radii, par]
-  })
-  )
-}
+/** Le cache ne calcule que les poses demandées par les vignettes et le lecteur. */
+const cache = new WeakMap<number[], Map<string, { x: number; y: number }>>()
 
-const DECALAGES = batir()
-
-/**
- * Decalage a appliquer aux deux yeux pour cette forme sur cet etat, en unites de rayon
- * de boule — le moteur le remet a son echelle.
- *
- * Vaut zero des que la forme n'est pas au catalogue, ce qui couvre `null` et le cercle :
- * sur le cercle les deux profils sont le meme, donc la marge est deja celle exigee et la
- * descente sort au premier tour. La forme relevee sur la video ne bouge donc pas, sans
- * cas particulier.
- */
 export function decalageDesYeux(
   radii: number[] | null,
   state: StateId,
   expr: string | null
 ): { x: number; y: number } {
-  if (!radii) return NUL
-  const par = DECALAGES.get(radii)
-  if (!par) return NUL
-  // un etat sans visage de repos n'a qu'une entree, quelle que soit l'expression
-  return par.get(clef(state, expr)) ?? par.get(clef(state, null)) ?? NUL
-}
+  const def = STATE_BY_ID.get(state)
+  if (!radii || !def?.baseBody) return NUL
 
-/** Pour les tests : de quoi verifier la table sans refaire la geometrie. */
-/** Pour les tests : de quoi chronometrer la construction de la table. */
-export const POUR_TESTS = { batir }
+  const expression = def.baseFace && expr ? (EXPRESSION_BY_ID.get(expr) ?? null) : null
+  const key = clef(state, expression?.id ?? null)
+  let par = cache.get(radii)
+  if (!par) {
+    for (const r of radii) if (!Number.isFinite(r)) return NUL
+    par = new Map()
+    cache.set(radii, par)
+  }
+  const memorise = par.get(key)
+  if (memorise) return memorise
+
+  const decalage = decalagePour(def, radii, expression)
+  par.set(key, decalage)
+  return decalage
+}
