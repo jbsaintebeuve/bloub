@@ -1,0 +1,7 @@
+// Site statique servi par Cloudflare Workers : aucun code serveur, seulement le
+// `dist/` de `pnpm build`. Deploye par le job `deploie` de `.github/workflows/ci.yml`.
+{
+  "name": "bloub",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "./dist" }
+}
