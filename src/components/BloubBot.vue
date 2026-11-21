@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { FORMES_IMPORTEES } from '@/ui/formes-importees'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, triggerRef, watch } from 'vue'
 import { NOTIF_BLUE } from '@/bot/decor'
 import { BotEngine, type BotFrame } from '@/bot/engine'
@@ -39,6 +40,7 @@ const props = withDefaults(
      * assombrie au rendu (`teinteLisible`).
      */
     colorHex?: string
+    eyeColor?: string
     /** identifiant d'expression de repos du personnalisateur */
     expression?: string
     /** couleur du fond, utilisee pour la brume de profondeur des particules */
@@ -99,7 +101,7 @@ const elapsed = defineModel<number>('elapsed', { default: 0 })
 const R = RAYON
 const VB = DEMI_VIEWBOX
 
-const shapeRadii = computed(() => SHAPE_BY_ID.get(props.shape)?.radii ?? null)
+const shapeRadii = computed(() => (SHAPE_BY_ID.get(props.shape) ?? FORMES_IMPORTEES.get(props.shape))?.radii ?? null)
 // La teinte libre passe par `teinteLisible` ICI, au seul point de rendu : la
 // scene, les vignettes et tous les exports dessinent ce composant, donc aucun
 // chemin ne peut produire un bot de la couleur du fond.
@@ -113,6 +115,7 @@ const expression = computed(() => EXPRESSION_BY_ID.get(props.expression) ?? null
 const engine = new BotEngine(R, state.value, shapeRadii.value, expression.value)
 const frame = shallowRef<BotFrame>(engine.sample(props.frozenAt ?? 0))
 const uid = Math.random().toString(36).slice(2, 8)
+const eyeInk = computed(() => estHexValide(props.eyeColor) ? props.eyeColor : undefined)
 const maskId = `bot-mask-${uid}`
 
 let raf = 0
@@ -525,14 +528,16 @@ function dotAttrs(dot: BotFrame['dots'][number]) {
         :height="VB * 2"
       >
         <path :d="frame.bodyPath" fill="#fff" />
-        <path
-          v-for="(eye, i) in frame.eyes"
-          :key="i"
-          :d="eye.d"
-          :transform="eye.matrix"
-          :opacity="eye.alpha"
-          fill="#000"
-        />
+        <template v-if="!eyeInk">
+          <path
+            v-for="(eye, i) in frame.eyes"
+            :key="i"
+            :d="eye.d"
+            :transform="eye.matrix"
+            :opacity="eye.alpha"
+            fill="#000"
+          />
+        </template>
         <circle
           v-if="frame.notch"
           :cx="frame.notch.x"
@@ -601,6 +606,17 @@ function dotAttrs(dot: BotFrame['dots'][number]) {
       <path :d="frame.bodyPath" :fill="props.paper" />
       <g :mask="`url(#${maskId})`">
         <rect :x="-VB" :y="-VB" :width="VB * 2" :height="VB * 2" :fill="ink" />
+        <template v-if="eyeInk">
+          <path
+            v-for="(eye, i) in frame.eyes"
+            :key="i"
+            :d="eye.d"
+            :transform="eye.matrix"
+            :opacity="eye.alpha"
+            data-oeil-colore=""
+            :fill="eyeInk"
+          />
+        </template>
       </g>
     </g>
 

@@ -28,6 +28,7 @@ const props = defineProps<{
   color: string
   /** Couleur effective quand l'identifiant est `perso` : voir `BloubBot`. */
   colorHex?: string
+  eyeColor?: string
   expression: string
 }>()
 
@@ -412,6 +413,7 @@ function onRulerMove(e: PointerEvent) {
                   :shape="shape"
                   :color="color"
                   :color-hex="colorHex"
+                  :eye-color="eyeColor"
                   :expression="expression"
                   :paper="i === block ? '#ffffff' : '#f2f2f2'"
                   :frozen-at="POSES[b.state]"
@@ -468,6 +470,7 @@ function onRulerMove(e: PointerEvent) {
               :shape="shape"
               :color="color"
               :color-hex="colorHex"
+              :eye-color="eyeColor"
               :expression="expression"
               @pick="emit('add', $event)"
             />

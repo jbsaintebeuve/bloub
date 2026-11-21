@@ -28,6 +28,7 @@ export type ExpressionId =
   | 'surpris'
   | 'excite'
   | 'heureux'
+  | 'ravi'
   | 'hilare'
   | 'colere'
   | 'triste'
@@ -44,6 +45,13 @@ export interface BotExpression {
   id: ExpressionId
   gaze: HeadGaze
   split: number
+  /**
+   * 0 = gélules, 1 = yeux en arc (l'arc heureux d'open-bot-avatar, voir
+   * `yeux.ts`). Les deux yeux partagent ce regard, comme le `EyeLook` d'OBA :
+   * il se mélange en nombre, donc il s'interpole avec les autres expressions.
+   * Absent = 0, la gélule seule.
+   */
+  arc?: number
   eyes: [EyeCfg, EyeCfg]
 }
 
@@ -88,6 +96,18 @@ export const EXPRESSIONS: BotExpression[] = [
     gaze: { yaw: 5, pitch: 9, roll: 0 },
     split: 17,
     eyes: pair(0.27, 0.17, 14)
+  },
+  {
+    // yeux en arc (^ ^), repris d'open-bot-avatar 0.3.0 : l'arc est plus large
+    // que la gélule (2,04 x w), donc w un peu plus étroit que `heureux` et un
+    // écart un peu plus grand pour que les deux arcs ne se touchent pas.
+    // Reglé à la main sur la sphère : rayon max du contour 66 sur une boule
+    // de 100, les deux arcs restent séparés d'environ 13 unités.
+    id: 'ravi',
+    gaze: { yaw: 6, pitch: 10, roll: 0 },
+    split: 19,
+    arc: 1,
+    eyes: pair(0.26, 0.46)
   },
   {
     id: 'hilare',
@@ -187,6 +207,8 @@ export function blendExpression(a: BotExpression, b: BotExpression, t: number): 
       roll: lerp(a.gaze.roll, b.gaze.roll, t)
     },
     split: lerp(a.split, b.split, t),
+    // l'arc se glisse comme le reste : la gélule fond dans l'arc point par point
+    arc: lerp(a.arc ?? 0, b.arc ?? 0, t),
     eyes: [lerpEyeCfg(a.eyes[0], b.eyes[0], t), lerpEyeCfg(a.eyes[1], b.eyes[1], t)]
   }
 }

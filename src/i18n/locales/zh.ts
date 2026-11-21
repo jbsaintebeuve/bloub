@@ -32,7 +32,16 @@ const zh: typeof fr = {
     animations: '动画',
     shape: '形状',
     expression: '表情',
-    color: '颜色'
+    color: '颜色',
+    eyeColor: '眼睛颜色',
+    resetEyeColor: '恢复默认眼睛颜色',
+    addShape: '添加形状',
+    removeImportedShape: '删除导入的形状',
+    navSections: '个性化版块',
+    tabFormes: '形状',
+    tabExpressions: '表情',
+    tabCouleurs: '颜色',
+    bodyColor: '身体颜色'
   },
 
   export: {
@@ -146,7 +155,17 @@ const zh: typeof fr = {
     goutte: '水滴',
     etoile: '星星',
     coeur: '爱心',
-    losange: '菱形'
+    losange: '菱形',
+    oeuf: '鸡蛋',
+    bouclier: '盾牌',
+    fantome: '幽灵',
+    manette: '游戏手柄',
+    bulle: '聊天气泡',
+    livre: '书本',
+    cerveau: '大脑',
+    'appareil-photo': '相机',
+    ampoule: '灯泡',
+    fusee: '火箭'
   },
 
   colors: {
@@ -171,6 +190,7 @@ const zh: typeof fr = {
     surpris: '惊讶',
     excite: '兴奋',
     heureux: '开心',
+    ravi: '欣喜',
     hilare: '大笑',
     colere: '生气',
     triste: '难过',

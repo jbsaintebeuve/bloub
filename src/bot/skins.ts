@@ -1,3 +1,4 @@
+import { egg, ghost, shield, book, brain, camera, rocket, chat, controller, lightbulb } from './profils-galerie'
 import { PROFILE_SAMPLES } from './profiles'
 import {
   hullOfCircles,
@@ -37,6 +38,16 @@ export type ShapeId =
   | 'etoile'
   | 'coeur'
   | 'losange'
+  | 'oeuf'
+  | 'bouclier'
+  | 'fantome'
+  | 'livre'
+  | 'cerveau'
+  | 'appareil-photo'
+  | 'fusee'
+  | 'bulle'
+  | 'manette'
+  | 'ampoule'
 
 export interface BotShape {
   id: ShapeId
@@ -166,7 +177,17 @@ export const SHAPES: BotShape[] = [
   { id: 'goutte', radii: droplet },
   { id: 'etoile', radii: star },
   { id: 'coeur', radii: heart },
-  { id: 'losange', radii: losange }
+  { id: 'losange', radii: losange },
+  { id: 'oeuf', radii: egg },
+  { id: 'bouclier', radii: shield },
+  { id: 'fantome', radii: ghost },
+  { id: 'livre', radii: book },
+  { id: 'cerveau', radii: brain },
+  { id: 'appareil-photo', radii: camera },
+  { id: 'fusee', radii: rocket },
+  { id: 'bulle', radii: chat },
+  { id: 'manette', radii: controller },
+  { id: 'ampoule', radii: lightbulb }
 ]
 
 // Map indexee par `string` et non par `ShapeId` : les appelants interrogent avec

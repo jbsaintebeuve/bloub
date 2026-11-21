@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest'
+import { FORMES_IMPORTEES } from './formes-importees'
 import { BotEngine } from '@/bot/engine'
-import { blockAt, defaultCycle, offsetOf, type Block } from '@/bot/cycles'
+import { blockAt, defaultCycle, makeBlock, offsetOf, type Block } from '@/bot/cycles'
 import { RAYON } from '@/bot/repere'
 import { CONTRASTE_MIN_PERSO, SHAPE_BY_ID, contraste, teinteLisible } from '@/bot/skins'
 import { EXPRESSION_BY_ID } from '@/bot/expressions'
-import { ouvreCycle } from './capture'
+import { ouvreCycle, versSvgAnime } from './capture'
 import { DEMI_ECRAN, viewBoxExport } from './export'
 
 /**
@@ -104,6 +105,35 @@ describe('teinte libre', () => {
     expect(fill).toBe(teinteLisible('#ffffff'))
     expect(contraste(fill!, '#ffffff')).toBeGreaterThanOrEqual(CONTRASTE_MIN_PERSO)
   })
+})
+
+it('anime les yeux en arc et colorés dans le SVG exporté', async () => {
+  const couleur = '#12b8a5'
+  const blob = await versSvgAnime({ ...REGLAGES, expression: 'ravi', eyeColor: couleur }, TAILLE, 3, 0.1)
+  const markup = await blob.text()
+  const svg = new DOMParser().parseFromString(markup, 'image/svg+xml')
+  const yeux = svg.querySelectorAll(`path[fill="${couleur}"]`)
+  expect([...yeux].map((oeil) => oeil.getAttribute('class'))).toEqual(['oeil0', 'oeil1'])
+  for (const oeil of yeux) expect(oeil.getAttribute('d')).toContain('Q')
+  expect(markup).toContain('@keyframes oeil0{')
+  expect(markup).toContain('@keyframes oeil1{')
+})
+
+it('utilise le contour d’une forme importée dans le rendu hors écran', async () => {
+  const id = 'perso-test-export'
+  const radii = SHAPE_BY_ID.get('galet')!.radii.map((rayon) => rayon * 0.99)
+  FORMES_IMPORTEES.set(id, { id, name: 'Galet importé', radii })
+  const reglages = { ...REGLAGES, shape: id }
+  const blocs = [makeBlock('idle')]
+  const lecteur = await ouvreCycle(reglages, blocs, TAILLE)
+  try {
+    const svg = await lecteur.rendre(0)
+    const expression = EXPRESSION_BY_ID.get(REGLAGES.expression)!
+    expect(corpsDe(svg)).toBe(new BotEngine(RAYON, 'idle', radii, expression).sample(0).bodyPath)
+  } finally {
+    lecteur.ferme()
+    FORMES_IMPORTEES.delete(id)
+  }
 })
 
 describe('lecteur hors ecran', () => {

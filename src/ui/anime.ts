@@ -38,14 +38,16 @@ export function svgAnime(base: string, matrices: string[][], duree: number): str
   const mask = base.match(/<mask[\s\S]*?<\/mask>/)
   if (!mask) throw new Error('masque introuvable')
 
-  // Les yeux sont les seules formes du masque a porter un `transform` : le corps
-  // n'en a pas. On les numerote dans l'ordre du document.
   let n = 0
-  const maskAnime = mask[0].replace(/transform="matrix\([^)]*\)"/g, () => `class="oeil${n++}"`)
+  const transforme = (element: string) =>
+    element.replace(/transform="matrix\([^)]*\)"/g, () => `class="oeil${n++}"`)
+  const rendu = base.includes('data-oeil-colore=')
+    ? base.replace(/<path\b[^>]*\bdata-oeil-colore="[^"]*"[^>]*>/g, transforme)
+    : base.replace(mask[0], transforme)
   if (n === 0) throw new Error('aucun oeil a animer')
 
   const parImage = matrices[0]!.length
-  if (parImage !== n) throw new Error(`${n} yeux dans le masque, ${parImage} par image cle`)
+  if (parImage !== n) throw new Error(`${n} yeux dans le SVG, ${parImage} par image cle`)
 
   const pas = 100 / (matrices.length - 1)
   const regles = Array.from({ length: n }, (_, oeil) => {
@@ -72,7 +74,7 @@ export function svgAnime(base: string, matrices: string[][], duree: number): str
     regles.join('') +
     '</style>'
 
-  return base.replace(mask[0], maskAnime).replace('</svg>', `${style}</svg>`)
+  return rendu.replace('</svg>', `${style}</svg>`)
 }
 
 /* ------------------------------------------------------------------- gif */

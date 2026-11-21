@@ -23,6 +23,7 @@ withDefaults(
     color?: string
     /** Couleur effective quand l'identifiant est `perso` : voir `BloubBot`. */
     colorHex?: string
+    eyeColor?: string
     expression?: string
     size?: number
   }>(),
@@ -50,6 +51,7 @@ withDefaults(
       :shape="shape"
       :color="color"
       :color-hex="colorHex"
+      :eye-color="eyeColor"
       :expression="expression"
       :frozen-at="frozenAt"
     />

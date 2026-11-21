@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { BotEngine } from './engine'
 import { EXPRESSIONS, EXPRESSION_BY_ID, blendExpression } from './expressions'
-import { radiusAtAngle } from './shape'
+import { capsulePath, radiusAtAngle } from './shape'
 import { SHAPE_BY_ID } from './skins'
+import { contourOeil } from './yeux'
 
 const cercle = () => SHAPE_BY_ID.get('cercle')!.radii
 
@@ -19,10 +20,10 @@ function rendu(matrix: string, w: number, h: number) {
 }
 
 describe('catalogue des expressions', () => {
-  it('expose 16 expressions aux identifiants uniques', () => {
-    expect(EXPRESSIONS).toHaveLength(16)
-    expect(new Set(EXPRESSIONS.map((e) => e.id)).size).toBe(16)
-    expect(EXPRESSION_BY_ID.size).toBe(16)
+  it('expose 17 expressions aux identifiants uniques', () => {
+    expect(EXPRESSIONS).toHaveLength(17)
+    expect(new Set(EXPRESSIONS.map((e) => e.id)).size).toBe(17)
+    expect(EXPRESSION_BY_ID.size).toBe(17)
   })
 
   /**
@@ -61,16 +62,30 @@ describe('catalogue des expressions', () => {
     expect(Math.sign(colere[0]!)).toBe(-Math.sign(triste[0]!))
   })
 
-  it('garde les deux yeux dans la silhouette, sur les 16 expressions', () => {
+  it('garde les deux yeux dans la silhouette, sur les 17 expressions', () => {
     for (const e of EXPRESSIONS) {
       const f = new BotEngine(100, 'idle', cercle(), e).sample(1)
       expect(f.eyes, e.id).toHaveLength(2)
+      // le VRAI contour de l'œil rendu (gélule ou arc), pas la diagonale de la gélule
+      const arc = e.arc ?? 0
       for (let i = 0; i < 2; i++) {
-        const r = rendu(f.eyes[i]!.matrix, e.eyes[i]!.w, e.eyes[i]!.h)
-        // demi-diagonale de l'oeil : le coin le plus lointain doit rester dedans
-        const demi = Math.hypot(r.largeur, r.hauteur) / 2
-        const bord = radiusAtAngle(cercle(), Math.atan2(r.y, r.x)) * 100
-        expect(Math.hypot(r.x, r.y) + demi, `${e.id} oeil ${i}`).toBeLessThan(bord * 1.02)
+        const m = /matrix\(([^)]+)\)/.exec(f.eyes[i]!.matrix)![1]!.split(',').map(Number) as number[]
+        for (const p of contourOeil(e.eyes[i]!.w * 100, e.eyes[i]!.h * 100, arc)) {
+          const x = m[0]! * p.x + m[2]! * p.y + m[4]!
+          const y = m[1]! * p.x + m[3]! * p.y + m[5]!
+          const bord = radiusAtAngle(cercle(), Math.atan2(y, x)) * 100
+          expect(Math.hypot(x, y), `${e.id} oeil ${i}`).toBeLessThan(bord * 1.02)
+        }
+      }
+    }
+  })
+
+  it("garde le rendu gélule au byte près tant qu'il n'y a pas d'arc", () => {
+    for (const e of EXPRESSIONS) {
+      if ((e.arc ?? 0) > 0) continue
+      const f = new BotEngine(100, 'idle', cercle(), e).sample(1)
+      for (let i = 0; i < 2; i++) {
+        expect(f.eyes[i]!.d, e.id).toBe(capsulePath(e.eyes[i]!.w * 100, e.eyes[i]!.h * 100))
       }
     }
   })
@@ -131,5 +146,102 @@ describe('changement d expression', () => {
     expect(m.eyes[0]!.tilt).toBeCloseTo(((a.eyes[0]!.tilt ?? 0) + (b.eyes[0]!.tilt ?? 0)) / 2, 5)
     expect(m.split).toBeCloseTo((a.split + b.split) / 2, 5)
     expect(m.gaze.pitch).toBeCloseTo((a.gaze.pitch + b.gaze.pitch) / 2, 5)
+  })
+})
+
+/**
+ * `ravi` : les yeux en arc, repris d'open-bot-avatar 0.3.0 (`yeux.ts`).
+ *
+ * L'export SVG animé ne transporte que les matrices des yeux, le `d` étant
+ * figé à la première image : l'expression pure doit donc porter son outline
+ * dans le `d`, stable image par image — c'est ce que ce describe verrouille.
+ */
+describe('ravi : yeux en arc', () => {
+  const ravi = EXPRESSION_BY_ID.get('ravi')!
+
+  it("a un arc, rendu comme un chemin et non comme une gélule", () => {
+    expect(ravi.arc).toBe(1)
+    const f = new BotEngine(100, 'idle', cercle(), ravi).sample(1)
+    expect(f.eyes).toHaveLength(2)
+    for (let i = 0; i < 2; i++) {
+      expect(f.eyes[i]!.d).not.toBe(capsulePath(ravi.eyes[i]!.w * 100, ravi.eyes[i]!.h * 100))
+      expect(f.eyes[i]!.d).toContain('Q')
+    }
+  })
+
+  it("garde le même outline image par image sur l'expression pure", () => {
+    const e = new BotEngine(100, 'idle', cercle(), ravi)
+    const d = e.sample(1).eyes[0]!.d
+    for (const t of [1.5, 2, 3.7, 5]) expect(e.sample(t).eyes[0]!.d).toBe(d)
+    // et relire une date passée redonne la même image (fonction pure du temps)
+    const a = e.sample(2).eyes[0]!.d
+    e.sample(9)
+    expect(e.sample(2).eyes[0]!.d).toBe(a)
+  })
+
+  it("cligne : le contour reste l'arc, seule la matrice s'écrase verticalement", () => {
+    const e = new BotEngine(100, 'idle', cercle(), ravi)
+    /** Longueur de la colonne y de la matrice de l'œil : c'est l'écrasement du clignement. */
+    const hauteur = (t: number) => {
+      const m = /matrix\(([^)]+)\)/.exec(e.sample(t).eyes[0]!.matrix)![1]!.split(',').map(Number)
+      return Math.hypot(m[1]!, m[3]!)
+    }
+    let tOuvert = 0
+    let tFerme = 0
+    for (let t = 0; t < 6; t += 1 / 60) {
+      if (hauteur(t) > hauteur(tOuvert)) tOuvert = t
+      if (hauteur(t) < hauteur(tFerme) || tFerme === 0) tFerme = t
+    }
+    expect(hauteur(tFerme)).toBeLessThan(hauteur(tOuvert) * 0.2)
+    // pendant le clignement, le `d` reste l'arc pur : c'est la matrice qui écrase
+    expect(e.sample(tFerme).eyes[0]!.d).toBe(e.sample(tOuvert).eyes[0]!.d)
+  })
+
+  it("interpole lisiblement : la gélule fond dans l'arc pendant le morph", () => {
+    const neutre = EXPRESSION_BY_ID.get('neutre')!
+    // l'arc se glisse en nombre
+    const arcs = [0, 0.25, 0.5, 0.75, 1].map((t) => blendExpression(neutre, ravi, t).arc!)
+    for (let i = 1; i < arcs.length; i++) expect(arcs[i]!).toBeGreaterThan(arcs[i - 1]!)
+    expect(arcs[0]).toBe(0)
+    expect(arcs[4]).toBe(1)
+
+    const e = new BotEngine(100, 'idle', cercle(), neutre)
+    e.setExpression(ravi, 1)
+    const purGelule = new BotEngine(100, 'idle', cercle(), neutre).sample(1).eyes[0]!.d
+    const purArc = new BotEngine(100, 'idle', cercle(), ravi).sample(1).eyes[0]!.d
+    expect(e.sample(1).eyes[0]!.d).toBe(purGelule)
+    const milieu = e.sample(1 + BotEngine.SHAPE_MORPH / 2).eyes[0]!.d
+    expect(milieu).not.toBe(purGelule)
+    expect(milieu).not.toBe(purArc)
+    // une fois le morph terminé, c'est exactement l'arc pur
+    expect(e.sample(1 + BotEngine.SHAPE_MORPH + 0.05).eyes[0]!.d).toBe(purArc)
+  })
+
+  it("ne touche pas les états qui ont leur propre visage releve sur la video", () => {
+    const nu = new BotEngine(100, 'wink', cercle()).sample(1)
+    const habille = new BotEngine(100, 'wink', cercle(), ravi).sample(1)
+    expect(habille.eyes.map((y) => y.d)).toEqual(nu.eyes.map((y) => y.d))
+  })
+
+  it("garde l'arc dans la silhouette sur les formes étroites, derive comprise", () => {
+    for (const id of ['capsule', 'triangle', 'goutte', 'etoile', 'hexagone'] as const) {
+      const radii = SHAPE_BY_ID.get(id)!.radii
+      const e = new BotEngine(100, 'idle', radii, ravi)
+      for (let i = 0; i < 40; i++) {
+        const f = e.sample(i * 0.05)
+        for (let k = 0; k < f.eyes.length; k++) {
+          const m = /matrix\(([^)]+)\)/.exec(f.eyes[k]!.matrix)![1]!.split(',').map(Number) as number[]
+          const cfg = ravi.eyes[k]!
+          for (const p of contourOeil(cfg.w * 100, cfg.h * 100, 1)) {
+            const x = m[0]! * p.x + m[2]! * p.y + m[4]!
+            const y = m[1]! * p.x + m[3]! * p.y + m[5]!
+            const bord = radiusAtAngle(radii, Math.atan2(y, x)) * 100
+            expect(Math.hypot(x, y), `${id} t=${(i * 0.05).toFixed(2)} oeil ${k}`).toBeLessThan(
+              bord * 1.01
+            )
+          }
+        }
+      }
+    }
   })
 })

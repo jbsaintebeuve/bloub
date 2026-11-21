@@ -27,7 +27,16 @@ const en: typeof fr = {
     animations: 'Animation',
     shape: 'Shape',
     expression: 'Expression',
-    color: 'Colour'
+    color: 'Colour',
+    eyeColor: 'Eye colour',
+    resetEyeColor: 'Restore default eye colour',
+    addShape: 'Add a shape',
+    removeImportedShape: 'Remove imported shape',
+    navSections: 'Customizer sections',
+    tabFormes: 'Shapes',
+    tabExpressions: 'Expressions',
+    tabCouleurs: 'Colours',
+    bodyColor: 'Body colour'
   },
 
   export: {
@@ -143,7 +152,17 @@ const en: typeof fr = {
     goutte: 'Droplet',
     etoile: 'Star',
     coeur: 'Heart',
-    losange: 'Diamond'
+    losange: 'Diamond',
+    oeuf: 'Egg',
+    bouclier: 'Shield',
+    fantome: 'Ghost',
+    manette: 'Controller',
+    bulle: 'Chat bubble',
+    livre: 'Book',
+    cerveau: 'Brain',
+    'appareil-photo': 'Camera',
+    ampoule: 'Light bulb',
+    fusee: 'Rocket'
   },
 
   colors: {
@@ -168,6 +187,7 @@ const en: typeof fr = {
     surpris: 'Surprised',
     excite: 'Excited',
     heureux: 'Happy',
+    ravi: 'Delighted',
     hilare: 'Laughing',
     colere: 'Angry',
     triste: 'Sad',
