@@ -37,13 +37,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { name: dist, path: dist }
-      # wrangler-action voit `pnpm-lock.yaml` et installe wrangler avec pnpm : sans lui,
-      # « Unable to locate executable file: pnpm ».
-      - uses: pnpm/action-setup@v4
+      # wrangler lance par npx, hors du projet : wrangler-action l'installerait avec pnpm
+      # dans node_modules, et pnpm 11 echoue sur ses scripts de build (esbuild, workerd).
       - id: wrangler
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: 4.157.0
-          command: deploy
+        shell: bash  # explicite : active pipefail, sinon `tee` masquerait un echec
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --yes wrangler@4.157.0 deploy | tee sortie.txt
+          echo "deployment-url=$(grep -oE 'https://[^ ]+\.workers\.dev' sortie.txt | head -1)" >> "$GITHUB_OUTPUT"
